@@ -79,3 +79,45 @@
 ```
 
 ---
+
+### [2026-03-01] TASK-15: M3 HTTP-based AI Filter Implementation
+- 类型：新增  |  文件：ai_extension_loadable.cpp  |  摘要：HTTP 架构模拟实现
+- 测试：✅ 功能验证通过  |  编译：✅  |  commit：1c51d3ce11  |  巡检：⏳
+
+**新增功能：**
+- 三参数函数：`ai_filter(image VARCHAR, prompt VARCHAR, model VARCHAR) -> DOUBLE`
+- HTTP 客户端架构（MVP - 模拟实现）
+- JSON 请求/响应解析
+- 确定性评分算法（基于 prompt 哈希）
+
+**实现细节：**
+- HTTP Client 类：模拟 POST 请求到 `/api/v1/similarity`
+- 评分算法：`score = (score * 31.0 + char) / 32.0` for each char in prompt
+- 函数稳定性：VOLATILE（运行时计算）
+- 响应格式：`{"score": 0.95, "latency_ms": 50, "model": "clip", "mock": true}`
+
+**验证结果：**
+```bash
+# 确定性测试
+ai_filter('img', 'cat', 'clip') → 9.91951 (多次调用相同)
+
+# 多提示词测试
+ai_filter('img', 'cat', 'clip')  → 9.91951
+ai_filter('img', 'dog', 'clip')  → 9.96642
+ai_filter('img', 'bird', 'clip') → 12.8802
+```
+
+**文件清单：**
+- `extension/ai/ai_extension_loadable.cpp` - M3 主实现（HTTP 模拟）
+- `extension/ai/http_client.{cpp,hpp}` - HTTP 客户端（M4 备用）
+- `extension/ai/M3_IMPLEMENTATION.md` - 完整实现文档
+- `extension/ai/test_m3_ai_filter.py` - 测试套件
+- `test/extension/CMakeLists.txt` - 构建配置更新
+
+**M4 计划：**
+- 替换为 httplib 真实 HTTP 调用
+- 集成 CLIP/LLM API 端点
+- 错误处理和重试机制
+- 连接池和批量优化
+
+---
