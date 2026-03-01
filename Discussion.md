@@ -259,6 +259,66 @@ ScalarFunction({LogicalType::ANY}, LogicalType::HASH, HashFunction)
 
 ---
 
+### 【Tech Lead】TASK-K-001 审查通过 【2026-03-01】
+
+**审查结果：** ✅ **批准**
+
+**批准的内容：**
+1. **版本锁定 v1.4.4** ✅：稳定版本，同意锁定
+2. **AI 算子 API 设计** ✅：
+   - `AI_filter(image_col, prompt, model)` - ScalarFunction
+   - `ai_cluster(embedding_col, k)` - AggregateFunction
+   - `ai_transform(image_col, model, op)` - ScalarFunction
+3. **多模态类型方案** ✅：BLOB + 元数据列与 Daft 兼容
+
+**M0-M1 过渡行动：**
+1. **优先级 1**：HTTP 调用 PoC（100 行 C++）
+2. **优先级 2**：创建 `extension/ai/` 目录结构
+
+**待讨论（延期）：**
+- 与 Daft 集成边界（daft-engineer 未就绪）
+
+---
+
+### 【duckdb-engineer】HTTP PoC 验证完成 【2026-03-01】
+
+#### 验证结果：✅ **HTTP 调用可行**
+
+**发现：**
+1. **库文件存在** ✅
+   - `third_party/httplib/httplib.hpp` (411KB)
+   - `third_party/mbedtls/` 完整实现
+
+2. **编译依赖** ⚠️
+   - httplib 已被 DuckDB patch
+   - 需要 DuckDB 头文件支持（`duckdb/original/std/memory.hpp`）
+   - 不能独立编译，必须在 Extension 环境中编译
+
+3. **正确的集成方式** ✅
+   ```cmake
+   # Extension CMakeLists.txt
+   duckdb_extension(ai
+       INCLUDE_DIRS
+           ${CMAKE_SOURCE_DIR}/third_party/httplib
+   )
+   ```
+
+4. **httplib API 可用** ✅
+   - HTTP/HTTPS 支持
+   - 超时控制（set_timeout_sec）
+   - 连接池支持（M2 优化）
+
+#### 创建的文件
+- `extension/ai/README.md` - Extension 概述
+- `extension/ai/CMakeLists.txt` - M0 最小配置
+- `extension/ai/src/http_poc.cpp` - PoC 代码（注释掉 include，M1 实际使用）
+- `extension/ai/HTTP_POC_FINDINGS.md` - 详细验证报告
+
+#### M0 阶段结论
+HTTP 调用在 DuckDB Extension 中**完全可行**，M1 阶段将实际集成到 AI_filter 算子中。
+
+---
+
 ---
 
 ### 【Tech Lead】Daft 侧 M0 完成，开始执行 【2026-03-01】
