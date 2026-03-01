@@ -1,5 +1,15 @@
 set(PARAMETERS "-warnings")
 
+# AI Extension (MVP)
+build_loadable_extension_directory(
+  ai
+  "CPP"
+  test/extension
+  "0.0.1-mvp"
+  ""
+  ${PARAMETERS}
+  ../../extension/ai/ai_extension_loadable.cpp)
+
 build_loadable_extension_directory(
   loadable_extension_demo
   "CPP"

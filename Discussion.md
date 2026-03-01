@@ -409,3 +409,27 @@ Daft 侧架构调研已完成（`Daft/ARCH_NOTES.md`）。关键发现：
 - 推荐方案：M1 采用 LogicalPlan → DuckDB SQL 转译层
 
 **你已获准开始执行 TASK-K-001**，立即开始第一阶段：环境验证
+
+### 【duckdb-engineer】TASK-K-003 进度更新 【2026-03-01】
+
+**当前状态：** Extension 编译成功，但元数据验证失败
+
+**已完成：**
+1. ✅ 创建 `ai_extension_loadable.cpp`（单文件模式，参考 loadable_extension_demo.cpp）
+2. ✅ 手动编译成功（89KB .so 文件）
+3. ✅ 创建测试脚本 `test_ai_extension.py`
+
+**遇到问题：**
+- DuckDB 报告："The metadata at the end of the file is invalid"
+- 手动编译没有添加必要的扩展元数据
+- 需要使用 `build_loadable_extension_directory` 函数
+
+**解决方案（进行中）：**
+将 AI extension 添加到 `test/extension/CMakeLists.txt`，使用 DuckDB 官方构建流程
+
+**下一步：**
+1. 修改 `test/extension/CMakeLists.txt`
+2. 重新构建
+3. 运行测试验证
+
+---

@@ -13,7 +13,7 @@
 
 namespace duckdb {
 
-void AIExtension::Load(ExtensionLoader &loader) {
+static void LoadInternal(ExtensionLoader &loader) {
 	// Register AI scalar functions
 	AIFunctions::RegisterScalarFunctions(loader);
 
@@ -25,6 +25,10 @@ void AIExtension::Load(ExtensionLoader &loader) {
 
 	// TODO M2: Register custom types (IMAGE_TYPE, EMBEDDING_TYPE)
 	// loader.RegisterType(LogicalType::IMAGE_TYPE_NAME, LogicalType::IMAGE());
+}
+
+void AIExtension::Load(ExtensionLoader &loader) {
+	LoadInternal(loader);
 }
 
 std::string AIExtension::Name() {
@@ -41,11 +45,12 @@ std::string AIExtension::Version() const {
 
 } // namespace duckdb
 
+#ifdef DUCKDB_BUILD_LOADABLE_EXTENSION
 extern "C" {
 
 DUCKDB_CPP_EXTENSION_ENTRY(ai, loader) {
-	duckdb::AIExtension extension;
-	extension.Load(loader);
+	duckdb::LoadInternal(loader);
 }
 
 } // extern "C"
+#endif
