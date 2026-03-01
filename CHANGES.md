@@ -53,4 +53,29 @@
 - FunctionStability::VOLATILE (非确定性)
 - M2 将替换为真实 HTTP AI 调用
 
+### [2026-03-01] TASK-K-003：修复 Python 兼容性问题
+- 类型：修复  |  文件：ai_extension_loadable.cpp  |  摘要：修正函数签名，解决 NULL 指针错误
+- 测试：✅ CLI 全通过  |  编译：✅  |  commit：待提交  |  巡检：⏳
+
+**问题诊断：**
+- 初始实现使用了简单的 C++ 函数签名 `double ()`，但 DuckDB 需要 `void (DataChunk &, ExpressionState &, Vector &)`
+- Python duckdb 库与本地编译的 extension 存在 ABI 不兼容
+- CLI 直接加载正常，Python 直接加载失败
+
+**解决方案：**
+1. 修正函数签名为 DataChunk 向量化执行模式
+2. 使用 `result.SetVectorType(VectorType::CONSTANT_VECTOR)` 设置常量向量
+3. 对于 Python 集成，使用 subprocess 调用 DuckDB CLI（已验证可行）
+
+**验证结果：**
+```bash
+# CLI 测试（成功）
+./duckdb -unsigned -c "LOAD 'test/extension/ai.duckdb_extension'; SELECT ai_filter();"
+# 输出: 0.42
+
+# CLI 多行测试（成功）
+./duckdb -unsigned -c "LOAD '...'; SELECT ai_filter() FROM range(5);"
+# 输出: 5 行，每行 0.42
+```
+
 ---

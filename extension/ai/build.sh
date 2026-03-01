@@ -69,8 +69,8 @@ if [ ! -f "${NULL_FILE}" ]; then
 fi
 
 # Use cmake to append metadata
-# For this repo, use v0.0.1 as the DuckDB version
-DUCKDB_VERSION="v0.0.1"
+# IMPORTANT: Version must match Python duckdb library version
+DUCKDB_VERSION="v1.4.4"
 echo "DuckDB version: ${DUCKDB_VERSION}"
 
 cmake -DEXTENSION="${OUTPUT}" \

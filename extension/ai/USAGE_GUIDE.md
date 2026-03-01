@@ -21,6 +21,30 @@ test/extension/ai.duckdb_extension
 
 ### 2. 加载扩展
 
+#### 方式 A：DuckDB CLI（推荐）
+```bash
+# 需要使用 -unsigned 参数加载未签名扩展
+./duckdb -unsigned -c "LOAD 'test/extension/ai.duckdb_extension';"
+
+# 完整示例
+./duckdb -unsigned -c "LOAD 'test/extension/ai.duckdb_extension'; SELECT ai_filter();"
+```
+
+#### 方式 B：Python（通过 subprocess）
+由于 Python duckdb 库与本地编译的 extension 存在 ABI 兼容性问题，
+推荐使用 subprocess 调用 DuckDB CLI：
+
+```python
+import subprocess
+
+# 执行 AI_filter 查询
+sql = "LOAD 'path/to/ai.duckdb_extension'; SELECT ai_filter('image_data'::BLOB, 'cat', 'clip') AS score;"
+result = subprocess.run(['./duckdb', '-unsigned', '-c', sql], capture_output=True, text=True)
+print(result.stdout)
+```
+
+#### 方式 C：Python 直接加载（不推荐，可能失败）
+
 #### 方式 A：Python API
 ```python
 import duckdb

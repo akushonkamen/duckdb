@@ -433,3 +433,32 @@ Daft 侧架构调研已完成（`Daft/ARCH_NOTES.md`）。关键发现：
 3. 运行测试验证
 
 ---
+
+### 【duckdb-engineer】TASK-K-003 Python 兼容性问题解决 【2026-03-01】
+
+**问题：** Extension 在 DuckDB CLI 中工作正常，但通过 Python duckdb 库加载时出现 NULL 指针错误
+
+**根本原因：**
+1. Python duckdb 库（v1.4.4 via pip）与本地编译的 extension 之间存在 ABI 不兼容
+2. 错误信息：`"Attempted to dereference shared_ptr that is NULL!"`
+3. 尽管版本号匹配（都是 v1.4.4），但编译环境/链接库不同导致二进制不兼容
+
+**验证结果：**
+- ✅ CLI 测试：全部通过（单行调用、多行调用、函数注册验证）
+- ❌ Python 直接加载：失败（NULL 指针错误）
+- ✅ Python subprocess 调用 CLI：成功（变通方案）
+
+**最终方案：**
+使用 Python subprocess 调用 DuckDB CLI 来执行包含 AI_filter 的查询。这确保：
+1. Extension 能正常工作（已通过 CLI 验证）
+2. Daft 侧可以通过 Python 包装函数调用 DuckDB
+3. 避免了 Python C extension 的 ABI 兼容性问题
+
+**Extension 位置：**
+- CLI 使用：`/path/to/duckdb/build/test/extension/ai.duckdb_extension` (6.8MB)
+- 调用方式：`duckdb -unsigned -c "LOAD 'path/to/ai.duckdb_extension'; SELECT ai_filter();"`
+
+**下一步：**
+创建 Python 包装函数 `daft_ai_filter()`，内部使用 subprocess 调用 DuckDB CLI
+
+---
