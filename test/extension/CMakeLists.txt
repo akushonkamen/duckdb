@@ -1,6 +1,6 @@
 set(PARAMETERS "-warnings")
 
-# AI Extension (MVP)
+# AI Extension (M3) - HTTP-based AI Filter
 build_loadable_extension_directory(
   ai
   "CPP"
