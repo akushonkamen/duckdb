@@ -217,13 +217,18 @@ static void ai_filter_function(DataChunk &args, ExpressionState &state, Vector &
 
         // Make HTTP request
         try {
-            // Build OpenAI-compatible JSON request
+            // Build OpenAI-compatible JSON request with actual image analysis
             std::ostringstream json_str;
             json_str << "{";
             json_str << "\"model\":\"" << model_str << "\",";
             json_str << "\"messages\":[";
-            json_str << "{\"role\":\"user\",\"content\":\"Rate image similarity (0-1): " << image_str << "\"}";
-            json_str << "],";
+            json_str << "{\"role\":\"user\",\"content\":\"";
+            json_str << "You are an image analysis assistant. I will provide a base64-encoded image. ";
+            json_str << "Image data: " << image_str << ". ";
+            json_str << "Analyze how well this image matches the description: '" << prompt_str << "'. ";
+            json_str << "Rate the similarity as a decimal number between 0.0 (not similar) and 1.0 (very similar). ";
+            json_str << "Respond with ONLY the number, nothing else.\"";
+            json_str << "\"}],";
             json_str << "\"max_tokens\":50";
             json_str << "}";
 
