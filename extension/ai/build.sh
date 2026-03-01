@@ -45,8 +45,9 @@ INCLUDES="-I${PROJECT_ROOT}/extension/ai/include -I${PROJECT_ROOT}/src/include"
 # Source files
 SOURCES="${PROJECT_ROOT}/extension/ai/src/ai_extension.cpp ${PROJECT_ROOT}/extension/ai/src/ai_filter.cpp"
 
-# Output file
-OUTPUT="${EXT_BUILD_DIR}/ai.duckdb_extension"
+# Output file (test/extension for compatibility with tests)
+OUTPUT="${BUILD_DIR}/test/extension/ai.duckdb_extension"
+mkdir -p "$(dirname "${OUTPUT}")"
 
 echo "Platform: ${PLATFORM}"
 echo "Compiling AI Extension (loadable mode)..."
@@ -69,7 +70,7 @@ if [ ! -f "${NULL_FILE}" ]; then
 fi
 
 # Use cmake to append metadata
-# IMPORTANT: Version must match Python duckdb library version
+# IMPORTANT: Version must match CLI version
 DUCKDB_VERSION="v1.4.4"
 echo "DuckDB version: ${DUCKDB_VERSION}"
 
