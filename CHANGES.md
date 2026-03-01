@@ -31,3 +31,26 @@
 - extension/ai/src/http_poc.cpp - PoC 代码框架
 
 **验证结论：** ✅ httplib + mbedtls 可用，HTTP 调用完全可行
+
+### [2026-03-01] TASK-K-003：AI_filter 算子 MVP
+- 类型：新增  |  文件：ai_extension_loadable.cpp  |  摘要：第一个可工作的 AI 算子
+- 测试：✅ 手动测试通过  |  编译：✅  |  commit：e482276c1b  |  巡检：⏳
+
+**新增文件：**
+- extension/ai/ai_extension_loadable.cpp - AI_filter 实现（MVP mock 版本）
+- test/extension/CMakeLists.txt - 添加 AI extension 到构建系统
+- extension/ai/test_ai_extension.py - Python 测试脚本
+- test/extension/ai.duckdb_extension - 编译产物 (25MB)
+
+**功能验证：**
+- ✅ 单行调用：`ai_filter(image_blob, 'cat', 'clip')`
+- ✅ 多行处理：`FROM range(5)`
+- ✅ WHERE 子句：`WHERE ai_filter(...) > 0.3`
+- ✅ 返回类型：DOUBLE (0.0-1.0 随机值)
+
+**MVP 实现细节：**
+- 使用 FunctionLocalState 管理随机数生成器
+- FunctionStability::VOLATILE (非确定性)
+- M2 将替换为真实 HTTP AI 调用
+
+---
