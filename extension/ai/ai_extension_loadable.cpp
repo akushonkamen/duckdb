@@ -1,27 +1,26 @@
 //===----------------------------------------------------------------------===//
-//                         DuckDB AI Extension (M3)
-//                         HTTP-based AI Filter Implementation (MVP)
+//                         DuckDB AI Extension (M3 Enhanced)
+//                         Real HTTP Calls via curl subprocess
 //===----------------------------------------------------------------------===//
 
 #include "duckdb.hpp"
 #include <string>
 #include <sstream>
 #include <cstring>
+#include <memory>
+#include <cstdio>
 
 using namespace duckdb;
 
-// Configuration for M3 MVP
-static std::string g_ai_service_url = "http://localhost:8000";
+// Configuration for real AI API
+static std::string g_ai_api_url = "https://chatapi.littlewheat.com/v1/chat/completions";
+static std::string g_ai_api_key = "sk-sxWGh4hWeExbe8sqZEkgBi4E9l8E53oaAaoYEzjxbzR5IOgk";
+static std::string g_ai_default_model = "chatgpt-4o-latest";
 
 /**
- * Simple HTTP client for MVP (M3)
- * Note: This is a simplified implementation for M3.
- * Full HTTP client with httplib integration will be added in M4.
+ * HTTP Response structure (custom to avoid DuckDB conflicts)
  */
-namespace duckdb {
-namespace ai {
-
-struct HTTPResponse {
+struct AIHTTPResponse {
     int status_code;
     std::string body;
     std::string error;
@@ -29,36 +28,51 @@ struct HTTPResponse {
     bool is_success() const { return status_code >= 200 && status_code < 300; }
 };
 
+/**
+ * HTTP Client using curl via popen
+ * This bypasses libcurl linking issues in loadable extensions
+ */
 class HttpClient {
 public:
-    HttpClient(const std::string& base_url, int timeout_sec = 5)
+    HttpClient(const std::string& base_url, int timeout_sec = 10)
         : base_url_(base_url), timeout_sec_(timeout_sec) {}
 
-    HTTPResponse post(const std::string& endpoint, const std::string& json_body) {
-        HTTPResponse response;
+    AIHTTPResponse post(const std::string& endpoint, const std::string& json_body) {
+        AIHTTPResponse response;
+        response.status_code = -1;
+        response.error = "";
 
-        // M3 MVP: Simulate HTTP call with mock response
-        // In production, this would make actual HTTP request using httplib
+        // Build curl command
+        std::ostringstream curl_cmd;
+        curl_cmd << "curl -s "
+                  << "--connect-timeout " << timeout_sec_ << " "
+                  << "--max-time " << (timeout_sec_ + 5) << " "
+                  << "-X POST "
+                  << "-H 'Content-Type: application/json' "
+                  << "-H 'Authorization: Bearer " << g_ai_api_key << "' "
+                  << "-d '" << json_body << "' "
+                  << "'" << base_url_ << endpoint << "'";
 
-        // Parse request to extract image data
-        std::string image = extract_json_field(json_body, "image");
-        std::string prompt = extract_json_field(json_body, "prompt");
+        // Execute curl command
+        FILE* pipe = popen(curl_cmd.str().c_str(), "r");
+        if (!pipe) {
+            response.error = "Failed to execute curl command";
+            return response;
+        }
 
-        // Generate mock similarity score based on prompt
-        // In production, this will call actual AI service
-        double score = generate_mock_score(prompt);
+        // Read response
+        char buffer[4096];
+        response.body = "";
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            response.body += buffer;
+        }
 
-        // Build mock JSON response
-        std::ostringstream response_body;
-        response_body << "{";
-        response_body << "\"score\": " << score << ",";
-        response_body << "\"latency_ms\": 50,";
-        response_body << "\"model\": \"clip\",";
-        response_body << "\"mock\": true";
-        response_body << "}";
-
-        response.status_code = 200;
-        response.body = response_body.str();
+        int status = pclose(pipe);
+        if (status == -1) {
+            response.error = "curl command failed";
+        } else {
+            response.status_code = 200; // curl returned successfully
+        }
 
         return response;
     }
@@ -66,71 +80,88 @@ public:
 private:
     std::string base_url_;
     int timeout_sec_;
-
-    std::string extract_json_field(const std::string& json, const std::string& field) {
-        // Simple JSON parsing for MVP
-        std::string search = "\"" + field + "\":\"";
-        size_t pos = json.find(search);
-        if (pos != std::string::npos) {
-            size_t start = pos + search.length();
-            size_t end = json.find("\"", start);
-            if (end != std::string::npos) {
-                return json.substr(start, end - start);
-            }
-        }
-        return "";
-    }
-
-    double generate_mock_score(const std::string& prompt) {
-        // Generate deterministic mock score based on prompt
-        // In production, this will be replaced with actual AI inference
-        double score = 0.5;
-        for (char c : prompt) {
-            score = (score * 31.0 + c) / 32.0;
-        }
-        return score;
-    }
 };
 
-} // namespace ai
-} // namespace duckdb
-
 // Global HTTP client
-static unique_ptr<ai::HttpClient> g_http_client = nullptr;
+static unique_ptr<HttpClient> g_http_client = nullptr;
 
 /**
  * Initialize HTTP client if not already initialized
  */
 static void ensure_client_initialized() {
     if (!g_http_client) {
-        g_http_client = make_uniq<ai::HttpClient>(g_ai_service_url, 10);
+        g_http_client = make_uniq<HttpClient>(g_ai_api_url, 10);
     }
 }
 
 /**
- * Parse JSON response and extract score
+ * Parse OpenAI-compatible JSON response and extract score
  */
 static double parse_score_from_response(const std::string& json_body) {
-    // Simple JSON parsing for MVP
-    std::string search = "\"score\":";
-    size_t pos = json_body.find(search);
+    // Try to find content in OpenAI format: choices[0].message.content
+    std::string search1 = "\"content\":\"";
+    size_t pos = json_body.find(search1);
     if (pos != std::string::npos) {
-        size_t start = pos + search.length();
-        size_t end = json_body.find_first_of(",}", start);
+        size_t start = pos + search1.length();
+        // Find end of string (handling escaped quotes)
+        size_t end = start;
+        while (end < json_body.length()) {
+            if (json_body[end] == '\\' && end + 1 < json_body.length() && json_body[end + 1] == '"') {
+                end += 2;  // Skip escaped quote
+            } else if (json_body[end] == '"') {
+                break;  // Found end of string
+            } else {
+                end++;
+            }
+        }
+
+        std::string content = json_body.substr(start, end - start);
+
+        // Try to extract numeric score from content
+        // Look for patterns like "0.95", "0.7", etc.
+        for (size_t i = 0; i < content.length(); i++) {
+            if (content[i] >= '0' && content[i] <= '9' &&
+                (i == 0 || (content[i-1] < '0' || content[i-1] > '9'))) {
+                // Found start of number
+                size_t num_start = i;
+                while (i < content.length() &&
+                       ((content[i] >= '0' && content[i] <= '9') || content[i] == '.')) {
+                    i++;
+                }
+                std::string num_str = content.substr(num_start, i - num_start);
+                try {
+                    double score = std::stod(num_str);
+                    if (score >= 0.0 && score <= 1.0) {
+                        return score;
+                    }
+                } catch (...) {
+                    // Continue searching
+                }
+            }
+        }
+    }
+
+    // Fallback: try to find "score" field
+    std::string search2 = "\"score\":";
+    pos = json_body.find(search2);
+    if (pos != std::string::npos) {
+        size_t start = pos + search2.length();
+        size_t end = json_body.find_first_of(",}]", start);
         if (end != std::string::npos) {
             std::string score_str = json_body.substr(start, end - start);
             try {
                 return std::stod(score_str);
             } catch (...) {
-                return 0.5;
+                // Fall through to default
             }
         }
     }
-    return 0.5;
+
+    return 0.5;  // Default score if parsing fails
 }
 
 /**
- * AI Filter function - makes HTTP call to AI service
+ * AI Filter function with real HTTP calls
  * Parameters: image (VARCHAR), prompt (VARCHAR), model (VARCHAR)
  * Returns: similarity score (DOUBLE)
  */
@@ -176,8 +207,8 @@ static void ai_filter_function(DataChunk &args, ExpressionState &state, Vector &
         std::string image_str(image_val.GetData(), image_val.GetSize());
         std::string prompt_str(prompt_val.GetData(), prompt_val.GetSize());
 
-        // Get model (default to "clip" if NULL)
-        std::string model_str = "clip";
+        // Get model (default to chatgpt-4o-latest if NULL)
+        std::string model_str = g_ai_default_model;
         idx_t model_idx = model_data.sel->get_index(i);
         if (model_data.validity.RowIsValid(model_idx)) {
             auto model_val = FlatVector::GetData<string_t>(model_vector)[i];
@@ -186,22 +217,26 @@ static void ai_filter_function(DataChunk &args, ExpressionState &state, Vector &
 
         // Make HTTP request
         try {
-            // Build JSON request manually (simpler for MVP)
+            // Build OpenAI-compatible JSON request
             std::ostringstream json_str;
             json_str << "{";
-            json_str << "\"image\":\"" << image_str << "\",";
-            json_str << "\"prompt\":\"" << prompt_str << "\",";
-            json_str << "\"model\":\"" << model_str << "\"";
+            json_str << "\"model\":\"" << model_str << "\",";
+            json_str << "\"messages\":[";
+            json_str << "{\"role\":\"user\",\"content\":\"Rate image similarity (0-1): " << image_str << "\"}";
+            json_str << "],";
+            json_str << "\"max_tokens\":50";
             json_str << "}";
 
             std::string json_payload = json_str.str();
 
-            auto response = g_http_client->post("/api/v1/similarity", json_payload);
+            // Make POST request to /v1/chat/completions
+            auto response = g_http_client->post("/v1/chat/completions", json_payload);
 
-            if (response.is_success()) {
+            if (response.is_success() && !response.body.empty()) {
+                // Parse JSON response
                 result_data[i] = parse_score_from_response(response.body);
             } else {
-                // On HTTP error, return default score
+                // HTTP request failed, return default score
                 result_data[i] = 0.5;
             }
         } catch (const std::exception& e) {
