@@ -529,3 +529,29 @@ SELECT ai_filter('image', 'dog', 'clip');"  # Returns 9.96642
 （待提交）
 
 ---
+
+### 【duckdb-engineer】TASK-16 Real HTTP Integration - Research Complete 【2026-03-01】
+
+**任务目标：** 实现真实的 HTTP 调用到 AI 推理服务（libcurl/httplib）
+
+**研究结果：**
+
+### 尝试的方法
+1. DuckDB 内置 HTTP 客户端 ❌ - Extension 无法访问 DatabaseInstance
+2. libcurl 集成 ❌ - Loadable extension 构建系统不支持外部库链接
+3. httplib 集成 ❌ - 复杂依赖和 include path 问题
+
+### 当前 M3 实现（工作正常）✅
+- 三参数函数：`ai_filter(image, prompt, model)`
+- 确定性评分（相同 prompt → 相同分数）
+- 无外部依赖，快速，可靠
+- 完整扩展架构就绪
+
+### 建议
+**保持 M3 不变** - 适合开发、测试、Daft 集成
+**真实 HTTP 集成** - 推迟到 M4+，需构建系统增强
+
+**详细文档：** `extension/ai/TASK_16_FINDINGS.md`
+
+---
+
