@@ -1040,3 +1040,87 @@ for (auto& f : futures) {
 **状态：** ⏳ 等待Tech Lead进一步指示后开始执行优先级1任务
 
 ---
+
+### 【duckdb-engineer】完成报告：TASK-CI-002 Extension 自动化测试 【2026-03-03】
+
+#### 1. 变更清单
+- `.github/workflows/extension_test.yml` - CI workflow 创建（协调仓库）
+
+#### 2. CI Workflow 设计
+
+**触发条件**：
+- push/PR 到 main 分支
+- 路径过滤：`duckdb/extension/**` 或 `.github/workflows/extension_test.yml`
+
+**测试流程**：
+1. **环境准备**
+   - Checkout repository（submodules recursive）
+   - Setup Python 3.11
+   - Install dependencies (pyarrow, pandas)
+   - Cache DuckDB build
+
+2. **编译阶段**
+   - Build DuckDB (CMake + make)
+   - Build AI Extension (make ai_extension)
+
+3. **测试阶段**
+   - Start Mock AI Server (后台运行)
+   - Test Extension Loading
+   - Run Extension Tests (CLI test, mock server test)
+   - Performance Check (100 rows benchmark)
+
+4. **多平台验证**
+   - macOS (latest)
+   - Ubuntu (latest)
+
+#### 3. Mock 服务器集成
+
+使用现有的 `test_mock_ai_server.py`：
+- 端口：8000
+- Endpoint：`POST /api/v1/similarity`
+- Health Check：`GET /health`
+- 确定性评分算法（基于 prompt hash）
+
+#### 4. 测试覆盖
+
+**Extension 加载测试**：
+```sql
+LOAD 'build/test/extension/ai.duckdb_extension';
+SELECT function_name, parameters FROM duckdb_functions() WHERE function_name LIKE 'ai_%';
+```
+
+**功能测试**：
+```sql
+SELECT ai_filter_batch('test', 'cat', 'clip') AS score FROM range(5);
+```
+
+**性能基准**：
+- 100 行执行时间测量
+- 记录到 CI 日志
+
+#### 5. GitHub Artifacts
+
+上传测试结果：
+- Extension 文件
+- 测试日志
+- 保留 7 天
+
+#### 6. Git Commit
+
+协调仓库提交：
+- Commit: 6ce2319
+- Message: feat(ci): [TASK-CI-002] 添加 Extension 自动化测试
+
+#### 7. 待优化项
+
+- [ ] 添加更详细的单元测试
+- [ ] 集成代码覆盖率报告
+- [ ] 添加回归测试检测
+- [ ] Windows 平台支持
+
+#### 结论
+
+✅ **CI workflow 已创建**，自动化测试基础设施就绪。
+每次 Extension 代码变更将自动触发测试，确保代码质量。
+
+---
