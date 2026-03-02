@@ -147,13 +147,6 @@ static double ExtractScore(const string &json_response) {
 	return 0.5; // Default if parsing fails
 }
 
-// Simple deterministic hash for fallback (when HTTP is slow/unavailable)
-static double DeterministicScore(const string_t &image, const string_t &prompt) {
-	// Simple hash-based scoring
-	size_t hash = std::hash<string>{}(prompt.GetString());
-	return (hash % 1000) / 1000.0;
-}
-
 static void AIFilterFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &image_vector = args.data[0];  // VARCHAR (base64 or placeholder)
 	auto &prompt_vector = args.data[1]; // VARCHAR
