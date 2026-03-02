@@ -11,6 +11,8 @@ git branch   # 应显示 feature/multimodal-ai-extension
 
 # 每次 Task 完成后
 bash run_tests.sh            # 全量测试，必须全通过
+# 性能验证（Extension 层面）
+./build/duckdb -unsigned -c "LOAD 'build/test/extension/ai.duckdb_extension'; SELECT ai_filter_batch('test', 'cat', 'clip') FROM range(100);" | head -5
 git add -A
 git commit -m "feat(duckdb): [TASK-K-XXX] <描述>
 
@@ -19,6 +21,7 @@ git commit -m "feat(duckdb): [TASK-K-XXX] <描述>
 
 DuckDB: vX.X.X
 Tests: X passed / 0 failed
+Benchmark: 100 rows @ Y s (记录性能)
 Branch: feature/multimodal-ai-extension"
 
 # 然后 SendMessage 通知 Tech Lead 执行 sync
@@ -81,3 +84,15 @@ git log --oneline -3：
 - 禁止空跑测试 / 伪造输出 / 截断日志
 - Extension API 可行性疑问先讨论，不自行假设
 - commit 只在 duckdb/ submodule 内
+
+## 性能监控 ⚠️
+**每次 Extension 代码变更后必须验证性能：**
+```bash
+# 快速性能检查（100行）
+./build/duckdb -unsigned -c "LOAD 'build/test/extension/ai.duckdb_extension'; SELECT ai_filter_batch('test', 'cat', 'clip') FROM range(100);"
+```
+
+**要求**：
+- 记录执行时间到 CHANGES.md
+- 性能下降超过 10% 需要说明原因
+- 与 Daft 侧基准测试结果对齐
