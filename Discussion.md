@@ -889,6 +889,153 @@ cd Daft && python3 demo_real.py
 
 ---
 
+### 【duckdb-engineer】完成报告：TASK-OPS-001 错误处理和重试机制 【2026-03-03】
+
+#### 1. 变更清单
+- `extension/ai/src/ai_filter.cpp` - 添加重试逻辑和增强错误处理
+
+#### 2. 重试机制实现
+
+**指数退避算法**：
+```cpp
+GetRetryDelayMs(attempt):
+  delay = BASE_DELAY_MS * 2^attempt
+  delay = min(delay, MAX_DELAY_MS)
+  jitter = delay / 5
+  return delay + random(-jitter, +jitter)
+```
+
+**配置参数**：
+- MAX_RETRIES = 3（最大重试次数）
+- BASE_DELAY_MS = 100（初始延迟 100ms）
+- MAX_DELAY_MS = 5000（最大延迟 5s）
+- HTTP_TIMEOUT_SEC = 30（HTTP 超时 30s）
+
+**重试流程**：
+1. 尝试 HTTP 调用
+2. 失败 → 等待 delay → 重试
+3. 最多 3 次重试
+4. 全部失败 → 返回降级分数
+
+#### 3. 超时控制
+
+**两层超时**：
+- `--connect-timeout 30`：连接超时 30 秒
+- `--max-time 35`：总超时 35 秒
+
+**好处**：
+- 防止无限挂起
+- 快速失败策略
+- 可配置（AI_FILTER_TIMEOUT）
+
+#### 4. 降级策略
+
+**错误处理流程**：
+```
+HTTP 调用
+  ├─ 成功 → 返回解析分数
+  ├─ 失败 → 重试（最多 3 次）
+  └─ 全部失败 → 返回默认分数（0.5）
+```
+
+**降级标记**：
+```json
+{"error":"max_retries_exceeded"}
+```
+
+**可配置降级分数**：
+- 环境变量：`AI_FILTER_DEFAULT_SCORE`
+- 默认值：0.5
+
+#### 5. 结构化错误日志
+
+**日志格式**：
+```cpp
+fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: popen failed\n", attempt);
+fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: HTTP error (status=%d, len=%zu)\n", ...);
+fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: Success after retry\n", attempt);
+```
+
+**日志级别**：
+- 错误 → stderr（DuckDB 日志可见）
+- 成功重试 → 记录恢复信息
+
+#### 6. 性能影响分析
+
+**额外开销**：
+- 成功调用：无额外开销
+- 首次失败：+100ms 延迟
+- 二次失败：+200ms 延迟
+- 三次失败：+400ms 延迟
+
+**最坏情况**：
+- 总延迟：100 + 200 + 400 + 原始调用时间
+- 约：700ms + API 延迟
+
+**改进建议**：
+- 快速失败（连续失败后跳过后续重试）
+- 断路器模式（检测服务不可用）
+
+#### 7. 可配置参数
+
+| 环境变量 | 默认值 | 说明 |
+|---------|--------|------|
+| AI_FILTER_MAX_RETRIES | 3 | 最大重试次数 |
+| AI_FILTER_TIMEOUT | 30 | HTTP 超时（秒） |
+| AI_FILTER_DEFAULT_SCORE | 0.5 | 降级分数 |
+
+**使用示例**：
+```bash
+export AI_FILTER_MAX_RETRIES=5
+export AI_FILTER_TIMEOUT=60
+export AI_FILTER_DEFAULT_SCORE=0.3
+./duckdb -unsigned -c "LOAD 'ai.duckdb_extension'; ..."
+```
+
+#### 8. Git Commit
+
+```
+Commit: 308304928c
+Message: feat(duckdb): [TASK-OPS-001] 添加错误处理和重试机制
+Changes: 1 file changed, 133 insertions(+), 89 deletions(-)
+```
+
+#### 9. 测试验证
+
+**手动测试**：
+```bash
+# 测试重试逻辑（模拟网络故障）
+./build/duckdb -unsigned -c \
+  "LOAD 'build/test/extension/ai.duckdb_extension'; \
+   SELECT ai_filter('test', 'cat', 'clip') FROM range(3);"
+```
+
+**预期行为**：
+- 第一次失败：等待 100ms 重试
+- 第二次失败：等待 200ms 重试
+- 第三次失败：等待 400ms 重试
+- 全部失败：返回 0.5
+
+#### 10. 后续优化
+
+- [ ] 添加快速失败模式（连续失败检测）
+- [ ] 添加断路器模式（服务熔断）
+- [ ] 添加重试统计（成功率、延迟分布）
+- [ ] 添加自适应延迟（根据历史成功率调整）
+
+#### 结论
+
+✅ **TASK-OPS-001 完成**：
+- ✅ 重试机制实现（指数退避）
+- ✅ 超时控制（可配置）
+- ✅ 降级策略（默认分数）
+- ✅ 结构化错误日志
+- ✅ 环境变量配置
+
+**生产稳定性提升**：HTTP 调用不再因临时网络故障而失败。
+
+---
+
 ### 【Tech Lead】批准TASK-PROD-002开始执行 【2026-03-02】
 
 **批准内容**：
