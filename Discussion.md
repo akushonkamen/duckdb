@@ -674,3 +674,79 @@ cp duckdb build/release/duckdb
 （待提交）
 
 ---
+
+### 【duckdb-engineer】TASK-REVIEW-001 代码审查报告 【2026-03-02】
+
+#### 审查范围
+检查 DuckDB submodule 的最近提交，确保没有模拟实现。
+
+#### 检查的文件
+
+**1. extension/ai/src/ai_filter.cpp** ✅ **通过**
+- HTTP 调用是真实的 `popen()` + `curl` 子进程（第 59 行）
+- API endpoint 正确：`https://chatapi.littlewheat.com/v1/chat/completions`
+- 没有硬编码假分数（仅有的 `0.5` 是错误处理默认值，符合降级策略）
+- JSON 解析实现真实的多策略提取逻辑（第 76-140 行）
+
+**2. extension/ai/http_client.cpp** ✅ **通过**
+- 使用真实的 `httplib` 库实现 HTTP 客户端
+- 支持完整的 HTTPS/HTTP、超时控制、错误处理
+- 注：此文件当前未被 ai_filter.cpp 使用，但代码本身是真实实现
+
+**3. extension/ai/test_m3_ai_filter.py** ⚠️ **有误报注释但测试有效**
+- 测试包含真实 assert（第 103-106 行：检查分数数量）
+- 包含范围验证（第 109-112 行：检查分数在 [0,1] 范围）
+- 包含确定性检查（第 109 行：检查多次调用结果一致）
+- **注**：第 307 行有误报注释 "Simulated HTTP client (MVP)"，但这是过时文档，实际代码已是真实 HTTP
+
+**4. extension/ai/test_ai_extension.py** ✅ **通过**
+- 包含真实的返回值验证（第 37-39 行）
+- 包含范围检查（第 41-45 行）
+- 包含 WHERE 子句集成测试（第 50-53 行）
+
+**5. extension/ai/ai_extension_loadable.cpp** ✅ **通过**
+- 真实的 `popen()` + `curl` 实现（第 57 行）
+- 完整的错误处理和响应解析
+
+#### 发现的问题
+
+| 问题 | 严重性 | 状态 |
+|------|--------|------|
+| `0.5` 作为错误默认值（第 61、139 行） | 🟢 低 | 合理的降级策略 |
+| http_client.cpp 未被使用 | 🟢 低 | 预留的真实实现 |
+| test_m3_ai_filter.py 第 307-311 行过时注释 | 🟡 中 | 需更新文档 |
+| DeterministicScore 函数未使用 | 🟢 低 | 预留的备用实现 |
+
+#### 关键代码验证
+
+**真实 HTTP 调用证据：**
+```cpp
+// extension/ai/src/ai_filter.cpp:59
+FILE *pipe = popen(curl_cmd.str().c_str(), "r");
+```
+
+**真实 JSON 解析证据：**
+```cpp
+// extension/ai/src/ai_filter.cpp:80-108
+size_t content_pos = json_response.find("\"content\":");
+// ... 多策略解析逻辑
+```
+
+**真实 API endpoint：**
+```cpp
+// extension/ai/src/ai_filter.cpp:34
+static constexpr char BASE_URL[] = "https://chatapi.littlewheat.com";
+```
+
+#### Git 历史验证
+- `3670d4e8a1`: feat(duckdb): [TASK-16] Real HTTP Integration via curl subprocess
+- `772e348a3b`: fix(duckdb): [TASK-K-019] 修复 AI 过滤器真实数据集成的三个关键 bug
+
+#### 结论
+✅ **全部通过** - 无模拟实现，HTTP 调用真实，测试有效
+
+#### 建议行动
+- [ ] 更新 test_m3_ai_filter.py 第 307-311 行，移除 "Simulated HTTP client" 过时注释
+- [ ] 考虑统一使用 ai_filter.cpp 的实现，移除冗余的 ai_extension_loadable.cpp
+
+---
