@@ -7,6 +7,45 @@
 
 ## 当前任务
 
+### 🔄 TASK-CI-002：Extension 自动化测试
+**状态**：🔄 进行中  |  **优先级**：🟡 高（基础设施）
+
+**任务目标**：将 Extension 编译和测试集成到 CI/CD。
+
+**验收标准**：
+- [ ] GitHub Actions 中编译 DuckDB Extension
+- [ ] 运行 Extension 单元测试
+- [ ] 测试基本功能（ai_filter 注册和调用）
+- [ ] 使用 Mock 服务器避免外部 API 依赖
+
+**交付物**：
+- [ ] `.github/workflows/extension_test.yml` - Extension 专用 workflow
+- [ ] `tests/test_mock_ai_server.py` - Mock AI 服务器（Python）
+- [ ] `build.sh` 更新：支持 CI 模式
+
+---
+
+### 🔄 TASK-OPS-001：错误处理和重试机制
+**状态**：⏳ 待启动  |  **优先级**：🟢 中（生产稳定性）
+
+**任务目标**：增强错误处理，添加重试机制，提高生产稳定性。
+
+**验收标准**：
+- [ ] HTTP 调用失败自动重试（指数退避）
+- [ ] 超时处理（可配置超时时间）
+- [ ] 降级策略（N 次失败后返回默认值）
+- [ ] 结构化错误日志
+- [ ] 可配置的重试参数（环境变量）
+
+**交付物**：
+- [ ] `http_client.{cpp,hpp}` 更新 - 添加重试逻辑
+- [ ] `ai_filter.cpp` - 集成错误处理
+- [ ] 错误统计功能（调用次数、失败次数）
+
+---
+
+## 当前任务
+
 ### ✅ TASK-PROD-002：AI API批处理优化
 **状态**：✅ 通过  |  **优先级**：🟢 中（性能优化）
 
