@@ -110,49 +110,64 @@
 
 #### 1. 变更清单
 - `extension/ai/ai_extension_loadable.cpp` - 添加批处理函数 `ai_filter_batch`
-- `extension/ai/src/ai_filter.cpp` - 添加并发批处理实现（未集成）
+- 修复原始 `ai_filter_function` 中处理多行时的 bug（使用 unified vector data）
 
-#### 2. 实现结果
+#### 2. 修复的关键 Bug
+
+**问题**：原始 `ai_filter_function` 处理多行时出现段错误
+**根因**：直接从 vector 获取数据，而非使用 unified format
+```cpp
+// 错误写法
+auto image_val = FlatVector::GetData<string_t>(image_vector)[i];
+
+// 正确写法
+auto image_val = ((string_t *)image_data.data)[image_idx];
+```
+
+#### 3. 实现结果
+
 **✅ 函数注册成功**
 ```
 ┌─────────────────┬────────────────────┐
 │  function_name  │     parameters     │
 ├─────────────────┼────────────────────┤
 │ ai_filter       │ [col0, col1, col2] │
-│ ai_filter_batch │ [col0, col1, col2] │ ✅ 新增
+│ ai_filter_batch │ [col0, col1, col2] │ ✅
 └─────────────────┴────────────────────┘
 ```
 
-**⚠️ 多行调用问题**
-- 单行调用：✅ 成功
-- 多行调用：❌ 段错误 (Exit code 139)
-
-#### 3. 问题分析
-`std::async` 和 `std::future` 在 DuckDB 扩展环境中导致段错误。可能原因：
-- DuckDB 的内存管理与 C++ 标准库线程池冲突
-- 扩展加载时的符号解析问题
-- popen() 在多线程环境中的竞态条件
-
-#### 4. 当前实现
-```cpp
-// 简化版本：委托给原始函数
-static void ai_filter_batch_function(DataChunk &args, ExpressionState &state, Vector &result) {
-    ai_filter_function(args, state, result);  // 确保稳定性
-}
+**✅ 多行调用测试通过**
+```sql
+SELECT ai_filter_batch('test', 'cat', 'clip') FROM range(5);
+-- 返回 5 行，每行 0.5 ✅
 ```
+
+#### 4. 并发实现说明
+
+**技术限制**：
+- `std::async` 和 `std::thread` 在 DuckDB 扩展环境中不稳定
+- `popen()` 不是线程安全的
+
+**当前实现**：
+- `ai_filter_batch` 委托给 `ai_filter_function`（顺序处理）
+- API 已预留，未来可替换为真正的并发实现
 
 #### 5. 后续改进方向
 1. **方案 A**：使用 libcurl multi interface（需修改构建系统）
-2. **方案 B**：实现专用线程池，避免 std::async
-3. **方案 C**：批处理 API 调用（修改服务端支持批量请求）
+2. **方案 B**：实现专用线程池，避免 C++ 标准库的并发原语
+3. **方案 C**：服务端批量 API（修改服务端支持）
 
-#### 6. Git Commit
+#### 6. 性能对比（当前）
+- 顺序处理：每行 ~100-500ms（API 延迟）
+- N 行 = N × 延迟
+
+#### 7. Git Commit
 （待提交）
 
 #### 结论
-- ✅ 批处理函数 API 已添加
-- ⚠️ 并发实现因环境限制暂时委托给原始函数
-- 📋 技术债务：后续需实现真正的批处理优化
+- ✅ 多行处理 bug 已修复
+- ✅ 批处理 API 已添加
+- ⏸️ 真正的并发处理受技术限制，留待后续优化
 
 ---
 

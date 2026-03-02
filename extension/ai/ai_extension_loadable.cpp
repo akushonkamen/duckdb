@@ -210,9 +210,9 @@ static void ai_filter_function(DataChunk &args, ExpressionState &state, Vector &
             continue;
         }
 
-        // Extract parameters
-        auto image_val = FlatVector::GetData<string_t>(image_vector)[i];
-        auto prompt_val = FlatVector::GetData<string_t>(prompt_vector)[i];
+        // Extract parameters using unified format
+        auto image_val = ((string_t *)image_data.data)[image_idx];
+        auto prompt_val = ((string_t *)prompt_data.data)[prompt_idx];
 
         std::string image_str(image_val.GetData(), image_val.GetSize());
         std::string prompt_str(prompt_val.GetData(), prompt_val.GetSize());
@@ -221,7 +221,7 @@ static void ai_filter_function(DataChunk &args, ExpressionState &state, Vector &
         std::string model_str = g_ai_default_model;
         idx_t model_idx = model_data.sel->get_index(i);
         if (model_data.validity.RowIsValid(model_idx)) {
-            auto model_val = FlatVector::GetData<string_t>(model_vector)[i];
+            auto model_val = ((string_t *)model_data.data)[model_idx];
             model_str = std::string(model_val.GetData(), model_val.GetSize());
         }
 
@@ -265,14 +265,59 @@ static void ai_filter_function(DataChunk &args, ExpressionState &state, Vector &
 }
 
 /**
- * Batch processing function for AI filter
- * NOTE: Concurrent processing with std::async causes segfaults in DuckDB extension environment.
- * This implementation uses sequential processing with optimized single popen call.
- * Future improvement: Use libcurl multi interface or thread pool with proper synchronization.
+ * Helper function: Make single HTTP request (thread-safe with mutex)
+ */
+static double make_single_request(const std::string &image, const std::string &prompt, const std::string &model) {
+    try {
+        // Build JSON request
+        std::ostringstream json_str;
+        json_str << "{";
+        json_str << "\"model\":\"" << model << "\",";
+        json_str << "\"messages\":[";
+        json_str << "{\"role\":\"user\",\"content\":\"";
+        json_str << "You are an image analysis assistant. Analyze image: " << image << ". ";
+        json_str << "Rate similarity to '" << prompt << "' (0.0-1.0). ";
+        json_str << "Respond ONLY the number.\"";
+        json_str << "\"}],";
+        json_str << "\"max_tokens\":50";
+        json_str << "}";
+
+        // Make HTTP request with mutex protection
+        std::ostringstream curl_cmd;
+        curl_cmd << "curl -s --connect-timeout 10 --max-time 15 "
+                 << "-H 'Content-Type: application/json' "
+                 << "-H 'Authorization: Bearer " << g_ai_api_key << "' "
+                 << "-d '" << json_str.str() << "' "
+                 << "'" << g_ai_api_url << "'";
+
+        // Lock mutex for popen (popen is not thread-safe)
+        std::lock_guard<std::mutex> lock(g_popen_mutex);
+
+        FILE* pipe = popen(curl_cmd.str().c_str(), "r");
+        if (pipe) {
+            char buffer[4096];
+            std::string response;
+            while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                response += buffer;
+            }
+            pclose(pipe);
+            return parse_score_from_response(response);
+        }
+    } catch (...) {
+        // Fall through to default
+    }
+    return 0.5;
+}
+
+/**
+ * Batch processing function
+ * NOTE: Due to std::thread instability in DuckDB extension environment,
+ * this implementation uses sequential processing with optimized single popen calls.
+ * Future improvement: Implement custom thread pool or use libcurl multi interface.
  */
 static void ai_filter_batch_function(DataChunk &args, ExpressionState &state, Vector &result) {
-    // For now, delegate to the sequential implementation
-    // This ensures stability while providing the batch API
+    // Delegate to the original sequential implementation for stability
+    // The batch API is preserved for future optimization
     ai_filter_function(args, state, result);
 }
 
