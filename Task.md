@@ -69,6 +69,25 @@
 
 ---
 
+### 🔄 TASK-DOC-002：Extension 文档
+**状态**：🔄 进行中  |  **优先级**：🟢 中（文档）
+
+**任务目标**：完善 DuckDB Extension 文档。
+
+**验收标准**：
+- [ ] Extension API 文档（ai_filter、ai_filter_batch）
+- [ ] 编译和安装指南
+- [ ] 配置参数说明（环境变量）
+- [ ] 错误处理和重试机制说明
+- [ ] Mock 服务器使用指南（用于测试）
+
+**交付物**：
+- [ ] `docs/AI_EXTENSION_API.md` - Extension API 文档
+- [ ] `docs/BUILD_GUIDE.md` - 编译指南
+- [ ] `docs/RETRY_LOGIC.md` - 重试机制说明
+
+---
+
 ## 历史任务
 
 ### ✅ TASK-K-001：M0 环境验证与架构摸底
