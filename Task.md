@@ -7,29 +7,55 @@
 
 ## 当前任务
 
-### TASK-K-001：M0 环境验证与架构摸底
-**状态**：⏳ 待启动  |  **优先级**：🔴 高（阻塞所有后续任务）
+### TASK-PROD-002：AI API批处理优化
+**状态**：🔄 进行中  |  **优先级**：🟢 中（性能优化）
+
+**任务目标**：实现AI API批处理优化，减少调用延迟，提高吞吐量。
 
 **验收标准**：
-- [ ] 开发环境可用（编译/导入命令 + 完整原始日志）
-- [ ] 现有测试套件全通过（提供完整输出）
-- [ ] ARCH_NOTES.md 内容完整（见下方要求）
-- [ ] Discussion.md 中发起架构方案讨论并等待 Tech Lead 确认
+- [ ] 实现 ai_filter_batch 函数，支持批量处理
+- [ ] 修复多行处理时的bug（使用unified vector data）
+- [ ] 验证批处理性能提升
+- [ ] 更新CHANGES.md和Discussion.md完成报告
 - [ ] 在 duckdb/ submodule 内完成 commit，通知 Tech Lead sync
 
-**ARCH_NOTES.md 要求**：
-- 目标 DuckDB 版本选型及理由
-- Extension API 能力矩阵（Scalar UDF / Aggregate UDF / 自定义类型 / HTTP 调用）
-- AI_filter / AI_aggregation / AI_transform 初步设计方案
-- 多模态数据类型在 DuckDB 中的表示方案
-- Python bindings 接口暴露方案
+**技术方案**：
+- 方案A：批处理API调用（推荐）
+- 方案B：并发请求（备选）
 
-**预期输出物**：
-- `duckdb/ARCH_NOTES.md`
-- `duckdb/CHANGES.md` 更新
-- duckdb/ submodule 内的 git commit
+**风险预警**：
+- ScalarFunction向量化限制
+- API批量支持限制
+- 内存占用增加
 
 ---
 
 ## 历史任务
-（暂无）
+
+### ✅ TASK-K-001：M0 环境验证与架构摸底
+**状态**：✅ 通过
+
+**完成内容**：
+- ✅ 开发环境可用（DuckDB v1.4.4）
+- ✅ 现有测试套件全通过
+- ✅ ARCH_NOTES.md 完整
+- ✅ Extension API能力矩阵完成
+- ✅ HTTP调用可行性验证
+
+### ✅ TASK-K-003：AI_filter MVP实现
+**状态**：✅ 通过
+
+### ✅ TASK-15：M3 HTTP AI集成
+**状态**：✅ 通过
+
+### ✅ TASK-16：Real HTTP Integration
+**状态**：✅ 通过
+
+### ✅ TASK-K-019：修复AI过滤器真实数据集成
+**状态**：✅ 通过
+
+### ✅ TASK-K-020：构建DuckDB CLI v1.4.4
+**状态**：✅ 通过
+
+### ✅ TASK-FIX-001/TASK-FIX-002：Demo修复
+**状态**：✅ 通过
