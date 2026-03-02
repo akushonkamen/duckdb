@@ -622,3 +622,55 @@ make -j8
 提交信息待 Tech Lead 执行 sync 后更新
 
 ---
+
+### 【duckdb-engineer】完成报告：TASK-K-020 构建 DuckDB CLI v1.4.4 【2026-03-02】
+
+#### 任务概述
+daft-engineer 完成 CIFAR-10 真实数据 Demo 后遇到版本兼容问题：AI Extension 为 v1.4.4 构建，但 CLI 显示 v0.0.1，无法加载 Extension。
+
+#### 问题分析
+- CLI 版本检测失败：`git describe` 因 shallow clone 返回 dummy 版本
+- CMake 配置未设置 `OVERRIDE_GIT_DESCRIBE`
+- 旧 CLI：42MB, v0.0.1
+- 新 Extension：85KB, v1.4.4
+
+#### 解决方案
+```bash
+# 重新配置 CMake，强制版本
+cd build && cmake .. -DOVERRIDE_GIT_DESCRIBE=v1.4.4
+
+# 构建 shell 目标
+make shell
+
+# 复制到 release 目录
+cp duckdb build/release/duckdb
+```
+
+#### 验证结果
+**1. 版本检查 ✅**
+```bash
+./build/release/duckdb -c "SELECT version();"
+# 输出: v1.4.4
+```
+
+**2. Extension 加载 ✅**
+```bash
+./build/release/duckdb -unsigned -c "LOAD 'repository/v1.4.4/osx_arm64/ai.duckdb_extension';"
+# 无错误输出
+```
+
+**3. 函数调用 ✅**
+```bash
+./build/release/duckdb -unsigned -c "SELECT ai_filter('test', 'cat', 'clip');"
+# 输出: 0.8421747836328571
+```
+
+#### 变更清单
+- `build/release/duckdb` - v1.4.4 CLI (42MB)
+- `CHANGES.md` - 添加 TASK-K-020 记录
+- `Discussion.md` - 本完成报告
+
+#### Git Commit
+（待提交）
+
+---

@@ -80,6 +80,40 @@
 
 ---
 
+### [2026-03-02] TASK-K-020：构建 DuckDB CLI v1.4.4
+- 类型：修改  |  文件：build/release/duckdb  |  摘要：重建 CLI 以匹配 Extension 版本
+- 测试：✅ 全通过  |  编译：✅  |  commit：待提交  |  巡检：⏳
+
+**变更原因：**
+- 旧 CLI 版本为 v0.0.1，无法加载 v1.4.4 版本的 AI Extension
+- 错误信息：`The file was built specifically for DuckDB version 'v1.4.4' (this version of DuckDB is 'v0.0.1')`
+
+**构建方法：**
+```bash
+cd build && cmake .. -DOVERRIDE_GIT_DESCRIBE=v1.4.4
+make shell
+```
+
+**验证结果：**
+```bash
+# 1. 版本检查 ✅
+./build/release/duckdb -c "SELECT version();"
+# 输出: v1.4.4
+
+# 2. Extension 加载 ✅
+./build/release/duckdb -unsigned -c "LOAD 'repository/v1.4.4/osx_arm64/ai.duckdb_extension';"
+# 无错误
+
+# 3. 函数调用 ✅
+./build/release/duckdb -unsigned -c "SELECT ai_filter('test', 'cat', 'clip');"
+# 输出: 0.8421747836328571
+```
+
+**文件清单：**
+- `build/release/duckdb` - v1.4.4 CLI (42MB)
+
+---
+
 ### [2026-03-01] TASK-15: M3 HTTP-based AI Filter Implementation
 - 类型：新增  |  文件：ai_extension_loadable.cpp  |  摘要：HTTP 架构模拟实现
 - 测试：✅ 功能验证通过  |  编译：✅  |  commit：1c51d3ce11  |  巡检：⏳
