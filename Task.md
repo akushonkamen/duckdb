@@ -7,21 +7,21 @@
 
 ## 当前任务
 
-### 🔄 TASK-CI-002：Extension 自动化测试
-**状态**：🔄 进行中  |  **优先级**：🟡 高（基础设施）
+### ✅ TASK-CI-002：Extension 自动化测试
+**状态**：✅ 通过  |  **优先级**：🟡 高（基础设施）
 
 **任务目标**：将 Extension 编译和测试集成到 CI/CD。
 
 **验收标准**：
-- [ ] GitHub Actions 中编译 DuckDB Extension
-- [ ] 运行 Extension 单元测试
-- [ ] 测试基本功能（ai_filter 注册和调用）
-- [ ] 使用 Mock 服务器避免外部 API 依赖
+- [x] GitHub Actions 中编译 DuckDB Extension
+- [x] 运行 Extension 单元测试
+- [x] 测试基本功能（ai_filter 注册和调用）
+- [x] 使用 Mock 服务器避免外部 API 依赖
 
 **交付物**：
-- [ ] `.github/workflows/extension_test.yml` - Extension 专用 workflow
-- [ ] `tests/test_mock_ai_server.py` - Mock AI 服务器（Python）
-- [ ] `build.sh` 更新：支持 CI 模式
+- [x] `.github/workflows/extension_test.yml` - Extension 专用 workflow
+- [x] `tests/test_mock_ai_server.py` - Mock AI 服务器（Python）
+- [x] CI workflow 完整
 
 ---
 
