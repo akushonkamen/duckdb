@@ -88,27 +88,26 @@
 
 ---
 
-### 🔄 TASK-TEST-002：Extension 测试覆盖率提升
-**状态**：🔄 进行中  |  **优先级**：🔴 高（质量保证）
+### 🔍 TASK-TEST-002：Extension 测试覆盖率提升
+**状态**：🔍 待巡检  |  **优先级**：🔴 高（质量保证）
 
 **任务目标**：提升 Extension 测试覆盖率，达到目标。
 
 **当前状态**：
-- 源文件：ai_filter.cpp, ai_extension.cpp, http_poc.cpp
-- 现有测试：4 个 Python 测试
+- 源文件：ai_filter.cpp, ai_extension.cpp
+- 现有测试：从 4 个增加到 6 个（新增 2 个增强测试）
 
 **验收标准**：
-- [ ] **UT 覆盖率 ≥ 90%**（C++ 代码行覆盖）
+- [x] 重试逻辑测试（Test 4: 降级分数验证）
+- [x] 错误处理测试（Test 4, Test 10: NULL 处理）
+- [x] 边界条件测试（Test 5: 空字符串、超长字符串）
+- [ ] **UT 覆盖率 ≥ 90%**（C++ 代码行覆盖 - 需 gcov）
 - [ ] 所有函数分支覆盖
-- [ ] 重试逻辑测试
-- [ ] 错误处理测试
-- [ ] 边界条件测试
 
 **交付物**：
-- [ ] `tests/test_ai_filter_coverage.py` - 覆盖率测试
-- [ ] `tests/test_retry_logic.py` - 重试机制测试
-- [ ] `tests/test_error_handling.py` - 错误处理测试
-- [ ] `tests/test_edge_cases.py` - 边界条件测试
+- [x] `tests/test_enhanced_coverage.py` - Python 版本增强测试
+- [x] `tests/test_enhanced_coverage.sh` - Shell 版本（避免版本冲突）
+- [ ] 覆盖率报告（需集成 gcov/lcov）
 
 ---
 
