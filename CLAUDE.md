@@ -85,6 +85,28 @@ git log --oneline -3：
 - Extension API 可行性疑问先讨论，不自行假设
 - commit 只在 duckdb/ submodule 内
 
+## 项目结构 📁
+```
+duckdb/extension/ai/
+├── src/                    # 核心实现
+│   ├── ai_extension.cpp
+│   └── ai_filter.cpp
+├── include/               # 头文件
+├── tests/                 # 所有测试文件
+│   ├── test_ai_cli.py
+│   ├── test_ai_extension.py
+│   ├── test_m3_ai_filter.py
+│   └── test_mock_ai_server.py
+├── build.sh               # 构建脚本
+├── README.md              # 扩展说明
+└── Task.md                # 任务看板
+```
+
+**文件放置规则**：
+- 核心代码 → `src/`
+- 测试文件 → `tests/`
+- 演示示例 → `examples/`（如需）
+
 ## 性能监控 ⚠️
 **每次 Extension 代码变更后必须验证性能：**
 ```bash
