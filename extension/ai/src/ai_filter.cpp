@@ -3,7 +3,7 @@
 //
 // ai_filter.cpp
 //
-// AI_filter ScalarFunction implementation - Real HTTP Calls
+// AI_filter ScalarFunction implementation - Batch Processing
 //===----------------------------------------------------------------------===//
 
 #include "ai_functions.hpp"
@@ -17,6 +17,11 @@
 #include <memory>
 #include <string>
 #include <sstream>
+#include <thread>
+#include <mutex>
+#include <vector>
+#include <atomic>
+#include <future>
 
 namespace duckdb {
 
@@ -179,6 +184,121 @@ static void AIFilterFunction(DataChunk &args, ExpressionState &state, Vector &re
 	result.SetVectorType(VectorType::FLAT_VECTOR);
 }
 
+// ============================================================================
+// Batch Processing: ai_filter_batch with concurrent requests
+// ============================================================================
+
+// Configuration for batch processing
+struct BatchConfig {
+	static constexpr size_t DEFAULT_BATCH_SIZE = 10;
+	static constexpr size_t MAX_CONCURRENT = 5;
+	static constexpr int REQUEST_TIMEOUT_SEC = 30;
+};
+
+// Single request result
+struct BatchResult {
+	size_t index;
+	double score;
+};
+
+// Process single image (thread-safe)
+static BatchResult ProcessSingleImage(size_t idx, const string &image, const string &prompt, const string &model) {
+	string response = CallAI_API(image, prompt, model);
+	double score = ExtractScore(response);
+	return BatchResult{idx, score};
+}
+
+static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vector &result) {
+	auto &image_vector = args.data[0];  // VARCHAR (base64)
+	auto &prompt_vector = args.data[1]; // VARCHAR
+	auto &model_vector = args.data[2];  // VARCHAR
+
+	size_t row_count = args.size();
+
+	// Unified input vectors for batch processing
+	UnifiedVectorFormat image_format;
+	UnifiedVectorFormat prompt_format;
+	UnifiedVectorFormat model_format;
+
+	image_vector.ToUnifiedFormat(row_count, image_format);
+	prompt_vector.ToUnifiedFormat(row_count, prompt_format);
+	model_vector.ToUnifiedFormat(row_count, model_format);
+
+	// Prepare data for batch processing
+	vector<string> images(row_count);
+	vector<string> prompts(row_count);
+	vector<string> models(row_count);
+
+	// Extract data from vectors
+	for (size_t i = 0; i < row_count; i++) {
+		// Get image
+		auto image_idx = image_format.sel->get_index(i);
+		if (!image_format.validity.RowIsValid(image_idx)) {
+			images[i] = "";
+		} else {
+			auto image_val = ((string_t *)image_format.data)[image_idx];
+			images[i] = image_val.GetString();
+		}
+
+		// Get prompt
+		auto prompt_idx = prompt_format.sel->get_index(i);
+		if (!prompt_format.validity.RowIsValid(prompt_idx)) {
+			prompts[i] = "";
+		} else {
+			auto prompt_val = ((string_t *)prompt_format.data)[prompt_idx];
+			prompts[i] = prompt_val.GetString();
+		}
+
+		// Get model
+		auto model_idx = model_format.sel->get_index(i);
+		if (!model_format.validity.RowIsValid(model_idx)) {
+			models[i] = DEFAULT_MODEL;
+		} else {
+			auto model_val = ((string_t *)model_format.data)[model_idx];
+			string model_str = model_val.GetString();
+			models[i] = model_str.empty() ? DEFAULT_MODEL : model_str;
+		}
+	}
+
+	// Process in batches with concurrency
+	vector<double> scores(row_count, 0.5); // Default scores
+	vector<future<BatchResult>> futures;
+
+	for (size_t i = 0; i < row_count; i++) {
+		// Skip empty images
+		if (images[i].empty() || prompts[i].empty()) {
+			scores[i] = 0.5;
+			continue;
+		}
+
+		// Launch async request
+		futures.push_back(async(launch::async, ProcessSingleImage, i, images[i], prompts[i], models[i]));
+
+		// Wait if we reached max concurrent
+		if (futures.size() >= BatchConfig::MAX_CONCURRENT) {
+			for (auto &f : futures) {
+				BatchResult res = f.get();
+				scores[res.index] = res.score;
+			}
+			futures.clear();
+		}
+	}
+
+	// Wait for remaining futures
+	for (auto &f : futures) {
+		BatchResult res = f.get();
+		scores[res.index] = res.score;
+	}
+
+	// Write results
+	auto result_data = FlatVector::GetData<double>(result);
+	for (size_t i = 0; i < row_count; i++) {
+		result_data[i] = scores[i];
+	}
+
+	result.SetVectorType(VectorType::FLAT_VECTOR);
+}
+
 ScalarFunction AIFunctions::GetAIFilterFunction() {
 	// ai_filter(image VARCHAR, prompt VARCHAR, model VARCHAR) -> DOUBLE
 	ScalarFunction ai_filter_function("ai_filter",
@@ -191,9 +311,25 @@ ScalarFunction AIFunctions::GetAIFilterFunction() {
 	return ai_filter_function;
 }
 
+ScalarFunction AIFunctions::GetAIFilterBatchFunction() {
+	// ai_filter_batch(image VARCHAR, prompt VARCHAR, model VARCHAR) -> DOUBLE
+	// Uses concurrent HTTP requests for better throughput
+	ScalarFunction ai_filter_batch_function("ai_filter_batch",
+	                                        {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
+	                                        LogicalType::DOUBLE, AIFilterBatchFunction);
+
+	// Mark as volatile since API results vary
+	ai_filter_batch_function.SetStability(FunctionStability::VOLATILE);
+
+	return ai_filter_batch_function;
+}
+
 void AIFunctions::RegisterScalarFunctions(ExtensionLoader &loader) {
-	// Register AI_filter function
+	// Register AI_filter function (original, sequential)
 	loader.RegisterFunction(GetAIFilterFunction());
+
+	// Register AI_filter_batch function (concurrent)
+	loader.RegisterFunction(GetAIFilterBatchFunction());
 }
 
 } // namespace duckdb

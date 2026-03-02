@@ -20,6 +20,11 @@ public:
 	// AI_filter: Returns similarity score between image and text prompt
 	// SQL: ai_filter(image_blob, prompt, model) -> DOUBLE
 	static ScalarFunction GetAIFilterFunction();
+
+	// AI_filter_batch: Batch processing with concurrent requests
+	// SQL: ai_filter_batch(image_blob, prompt, model) -> DOUBLE
+	// Uses async/concurrent execution for better throughput
+	static ScalarFunction GetAIFilterBatchFunction();
 };
 
 } // namespace duckdb

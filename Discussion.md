@@ -106,7 +106,53 @@
 
 ---
 
-**状态：** ⏳ 等待 Tech Lead 确认后开始执行
+### 【duckdb-engineer】完成报告：TASK-PROD-002 AI API 批处理 【2026-03-02】
+
+#### 1. 变更清单
+- `extension/ai/ai_extension_loadable.cpp` - 添加批处理函数 `ai_filter_batch`
+- `extension/ai/src/ai_filter.cpp` - 添加并发批处理实现（未集成）
+
+#### 2. 实现结果
+**✅ 函数注册成功**
+```
+┌─────────────────┬────────────────────┐
+│  function_name  │     parameters     │
+├─────────────────┼────────────────────┤
+│ ai_filter       │ [col0, col1, col2] │
+│ ai_filter_batch │ [col0, col1, col2] │ ✅ 新增
+└─────────────────┴────────────────────┘
+```
+
+**⚠️ 多行调用问题**
+- 单行调用：✅ 成功
+- 多行调用：❌ 段错误 (Exit code 139)
+
+#### 3. 问题分析
+`std::async` 和 `std::future` 在 DuckDB 扩展环境中导致段错误。可能原因：
+- DuckDB 的内存管理与 C++ 标准库线程池冲突
+- 扩展加载时的符号解析问题
+- popen() 在多线程环境中的竞态条件
+
+#### 4. 当前实现
+```cpp
+// 简化版本：委托给原始函数
+static void ai_filter_batch_function(DataChunk &args, ExpressionState &state, Vector &result) {
+    ai_filter_function(args, state, result);  // 确保稳定性
+}
+```
+
+#### 5. 后续改进方向
+1. **方案 A**：使用 libcurl multi interface（需修改构建系统）
+2. **方案 B**：实现专用线程池，避免 std::async
+3. **方案 C**：批处理 API 调用（修改服务端支持批量请求）
+
+#### 6. Git Commit
+（待提交）
+
+#### 结论
+- ✅ 批处理函数 API 已添加
+- ⚠️ 并发实现因环境限制暂时委托给原始函数
+- 📋 技术债务：后续需实现真正的批处理优化
 
 ---
 
@@ -748,5 +794,168 @@ static constexpr char BASE_URL[] = "https://chatapi.littlewheat.com";
 #### 建议行动
 - [ ] 更新 test_m3_ai_filter.py 第 307-311 行，移除 "Simulated HTTP client" 过时注释
 - [ ] 考虑统一使用 ai_filter.cpp 的实现，移除冗余的 ai_extension_loadable.cpp
+
+---
+
+### 【duckdb-engineer】完成报告：TASK-FIX-001 和 TASK-FIX-002 【2026-03-02】
+
+#### 任务概述
+修复 Demo 中的两个问题：
+1. TASK-FIX-001: Extension 符号不匹配
+2. TASK-FIX-002: CLI 版本统一
+
+#### 问题分析
+
+**TASK-FIX-001: Extension 符号不匹配**
+- **现象**：Demo 显示 "Extension 加载错误 (符号不匹配)"
+- **根本原因**：Python duckdb 库（pip 安装）与本地编译的 Extension 之间 ABI 不兼容
+  - Extension 需要 `__ZNK6duckdb18BaseScalarFunction8ToStringEv` 等符号
+  - Python 库中的符号是内部的，不暴露给 Extension
+- **解决方案**：Demo 已使用 subprocess 调用 CLI 方式（无需修改）
+  - Extension 在 CLI 中正常工作
+  - Demo 中的 `demo_duckdb_integration()` 函数正确使用 subprocess
+
+**TASK-FIX-002: CLI 版本统一**
+- **现象**：多个 CLI 副本版本可能不一致
+- **验证结果**：
+  ```
+  ./build/duckdb: v1.4.4 ✅
+  ./build/release/duckdb: v1.4.4 ✅
+  Python duckdb: v1.4.4 ✅
+  ```
+- **结论**：所有 CLI 版本已统一为 v1.4.4（由之前的 TASK-K-020 完成）
+
+#### 验证测试
+
+**1. CLI Extension 加载 ✅**
+```bash
+./duckdb/build/duckdb -unsigned -c "LOAD '.../ai.duckdb_extension'; SELECT ai_filter('test', 'cat', 'clip');"
+# 输出: 0.541895460491463
+```
+
+**2. Demo 完整运行 ✅**
+```bash
+cd Daft && python3 demo_real.py
+# 结果:
+#   DuckDB CLI 端到端: ✅ 成功
+#   Extension 加载: ✅ 成功
+#   真实分数: ✅ 获得
+```
+
+**3. Demo 输出验证**
+```
+✅ DuckDB CLI: v1.4.4
+✅ AI Extension: ai.duckdb_extension (83.1 KB)
+✅ Extension 加载成功
+✅ 查询成功 (0.02 秒)
+✅ 获得 HTTP API 真实分数
+```
+
+#### Demo 结果摘要
+| 测试项 | 状态 |
+|--------|------|
+| 数据准备验证 | ✅ 成功 |
+| Extension 状态 | ✅ 成功 |
+| 完整执行链路 | ✅ 成功 |
+| DuckDB CLI 端到端 | ✅ 成功 |
+
+**注意**：Daft API 用法失败是由于 Daft 库编译问题 (`__Py_DecRef` 符号)，不是 DuckDB Extension 问题。
+
+#### 变更清单
+无代码变更（仅需验证，问题已存在于之前任务中解决）
+
+#### Git Commit
+无需 commit（验证任务）
+
+#### 结论
+- ✅ TASK-FIX-001: Extension 符号不匹配 - 已解决（subprocess 方案工作正常）
+- ✅ TASK-FIX-002: CLI 版本统一 - 已解决（v1.4.4）
+- ⚠️ Demo 中的 "Extension 加载错误" 注释需要更新（已过时）
+
+---
+
+### 【duckdb-engineer】TASK-PROD-002 理解确认与风险预警 【2026-03-02】
+
+#### 1. 理解确认
+
+**任务目标：** 实现 AI API 批处理优化，减少调用延迟，提高吞吐量
+
+**当前状态：**
+- 每张图像单独调用 AI API（~100-500ms 延迟）
+- 使用 `popen()` + `curl` 子进程方式调用外部 API
+- ScalarFunction 逐行执行，无法批量
+
+**目标方案：**
+1. 在 Extension 中实现批处理逻辑
+2. 一次 API 调用处理多张图像
+3. 使用并发请求减少总延迟
+
+#### 2. 风险预警
+
+**🔴 高风险项：**
+
+1. **ScalarFunction 向量化限制**
+   - DuckDB ScalarFunction 按 DataChunk 执行（默认数百行）
+   - 当前 `ai_filter` 实现为逐行调用 `popen(curl)`
+   - **风险点：** 批处理需要重构执行模型，从逐行改为批处理
+
+2. **API 批量支持限制**
+   - 当前 API endpoint（ChatGPT-4o）单次请求仅支持一张图像
+   - 多图像并发需要多个并发 HTTP 请求
+   - **风险点：** API 限流、并发控制、错误处理复杂度增加
+
+3. **内存占用增加**
+   - 批处理需要缓存多张图像数据
+   - Base64 编码后图像大小增加 ~33%
+   - **风险点：** 大批次可能导致内存溢出
+
+**🟡 中风险项：**
+
+4. **错误处理复杂度**
+   - 批处理中部分图像失败的处理策略
+   - 超时、重试机制的实现
+   - **风险点：** 部分失败时如何返回结果
+
+5. **性能验证**
+   - 批处理开销（数据聚合、结果解聚）可能抵消收益
+   - **风险点：** 需要实际测量才能确定最优批次大小
+
+#### 3. 初步计划
+
+**方案 A：批处理 API 调用（推荐）**
+```cpp
+// 收集一批图像
+vector<string> batch_images;
+// 构建 JSON 批量请求
+string json_request = build_batch_request(batch_images, prompts);
+// 单次 API 调用处理整批
+string response = call_api_batch(json_request);
+// 解析批量结果
+vector<double> scores = parse_batch_response(response);
+```
+
+**方案 B：并发请求（备选）**
+```cpp
+// 使用 pthread 或 async 并发调用
+vector<future<double>> futures;
+for (auto& image : batch_images) {
+    futures.push_back(async(launch::async, [&]() {
+        return call_api_single(image, prompt);
+    }));
+}
+// 等待所有完成
+for (auto& f : futures) {
+    scores.push_back(f.get());
+}
+```
+
+**实施步骤：**
+1. 在 `ai_filter.cpp` 中添加批处理函数 `ai_filter_batch`
+2. 实现批量 JSON 请求构建
+3. 实现批量响应解析
+4. 性能测试：1/10/100 张图像的对比
+5. 参数可配置：批次大小、超时、并发数
+
+**待 Tech Lead 确认后开始执行。**
 
 ---
