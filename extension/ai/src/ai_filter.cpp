@@ -1,9 +1,8 @@
 //===----------------------------------------------------------------------===//
 //                         DuckDB
 //
-// ai_filter.cpp
-//
-// AI_filter ScalarFunction implementation - Batch Processing
+// ai_filter.cpp - Enhanced with Retry Logic and Error Handling
+//   TASK-OPS-001: 错误处理和重试机制
 //===----------------------------------------------------------------------===//
 
 #include "ai_functions.hpp"
@@ -22,16 +21,13 @@
 #include <vector>
 #include <atomic>
 #include <future>
+#include <ctime>
+#include <cstdlib>
 
 namespace duckdb {
 
 // ============================================================================
-// AI_filter: Real HTTP-based AI Similarity Filter Function
-// ============================================================================
-// Uses curl command to call OpenAI-compatible API
-//
-// SQL: ai_filter(image, prompt, model) -> DOUBLE
-// Example: SELECT ai_filter('image_data', 'a cat', 'clip') FROM images;
+// Configuration
 // ============================================================================
 
 // API Configuration
@@ -39,10 +35,32 @@ static constexpr char API_KEY[] = "sk-sxWGh4hWeExbe8sqZEkgBi4E9l8E53oaAaoYEzjxbz
 static constexpr char BASE_URL[] = "https://chatapi.littlewheat.com";
 static constexpr char DEFAULT_MODEL[] = "chatgpt-4o-latest";
 
-// Execute curl command and return response
-static string CallAI_API(const string &image, const string &prompt, const string &model) {
-	// Build JSON request body using GPT-4o Vision API format
-	// Reference: https://platform.openai.com/docs/guides/vision
+// Retry Configuration (TASK-OPS-001)
+static constexpr int MAX_RETRIES = 3;              // Maximum retry attempts
+static constexpr int BASE_DELAY_MS = 100;          // Initial delay (100ms)
+static constexpr int MAX_DELAY_MS = 5000;          // Maximum backoff delay (5s)
+static constexpr int HTTP_TIMEOUT_SEC = 30;        // HTTP request timeout
+static constexpr double DEFAULT_DEGRADATION_SCORE = 0.5;  // Fallback score
+
+// Get delay for exponential backoff with jitter
+static int GetRetryDelayMs(int attempt) {
+	// Exponential backoff: BASE_DELAY_MS * 2^attempt
+	int delay = BASE_DELAY_MS * (1 << attempt);
+	// Cap at MAX_DELAY_MS
+	delay = std::min(delay, MAX_DELAY_MS);
+	// Add jitter (±20%)
+	int jitter = delay / 5;
+	delay += (std::rand() % (2 * jitter + 1)) - jitter;
+	// Ensure non-negative
+	return std::max(0, delay);
+}
+
+// ============================================================================
+// Enhanced HTTP Call with Retry Logic (TASK-OPS-001)
+// ============================================================================
+
+static string CallAI_API_WithRetry(const string &image, const string &prompt, const string &model) {
+	// Build JSON request body
 	std::ostringstream json_body;
 	json_body << "{"
 	          << "\"model\":\"" << model << "\","
@@ -56,54 +74,107 @@ static string CallAI_API(const string &image, const string &prompt, const string
 	          << "\"max_tokens\":10"
 	          << "}";
 
-	// Build curl command
-	std::ostringstream curl_cmd;
-	curl_cmd << "curl -s '" << BASE_URL << "/v1/chat/completions' "
-	         << "-H 'Authorization: Bearer " << API_KEY << "' "
-	         << "-H 'Content-Type: application/json' "
-	         << "-d '" << json_body.str() << "'";
+	std::string json_payload = json_body.str();
 
-	// Execute curl command
-	FILE *pipe = popen(curl_cmd.str().c_str(), "r");
-	if (!pipe) {
-		return "0.5"; // Default score on error
+	// Retry loop with exponential backoff
+	for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		// Build curl command with timeout
+		std::ostringstream curl_cmd;
+		curl_cmd << "curl -s "
+		         << "--connect-timeout " << HTTP_TIMEOUT_SEC << " "
+		         << "--max-time " << (HTTP_TIMEOUT_SEC + 5) << " "
+		         << "'" << BASE_URL << "/v1/chat/completions' "
+		         << "-H 'Authorization: Bearer " << API_KEY << "' "
+		         << "-H 'Content-Type: application/json' "
+		         << "-d '" << json_payload << "'";
+
+		// Execute curl command
+		FILE* pipe = popen(curl_cmd.str().c_str(), "r");
+		if (!pipe) {
+			// Log error to stderr (visible in DuckDB logs)
+			fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: popen failed\\n", attempt);
+
+			if (attempt < MAX_RETRIES) {
+				int delay = GetRetryDelayMs(attempt);
+				std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+				continue;
+			}
+			break;  // Give up after max retries
+		}
+
+		// Read response
+		char buffer[4096];
+		std::ostringstream response;
+		size_t total_read = 0;
+		while (fgets(buffer, sizeof(buffer), pipe) != nullptr && total_read < 100000) {
+			response << buffer;
+			total_read += strlen(buffer);
+		}
+
+		int status = pclose(pipe);
+
+		// Check for errors
+		std::string response_str = response.str();
+		if (status != 0 || response_str.empty() || response_str.find("error") != std::string::npos) {
+			fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: HTTP error (status=%d, len=%zu)\\n",
+			        attempt, status, response_str.length());
+
+			if (attempt < MAX_RETRIES) {
+				int delay = GetRetryDelayMs(attempt);
+				std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+				continue;
+			}
+			break;  // Give up after max retries
+		}
+
+		// Success!
+		if (attempt > 0) {
+			fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: Success after retry\\n", attempt);
+		}
+		return response_str;
 	}
 
-	// Read response
-	char buffer[4096];
-	std::ostringstream response;
-	while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-		response << buffer;
-	}
-	pclose(pipe);
-
-	return response.str();
+	// All retries exhausted - return error marker
+	return "{\"error\":\"max_retries_exceeded\"}";
 }
 
-// Extract score from JSON response
+// Legacy wrapper (for backward compatibility)
+static string CallAI_API(const string &image, const string &prompt, const string &model) {
+	return CallAI_API_WithRetry(image, prompt, model);
+}
+
+// ============================================================================
+// Extract Score with Enhanced Error Handling
+// ============================================================================
+
 static double ExtractScore(const string &json_response) {
-	// Try multiple parsing strategies
+	// Check for retry exhaustion marker (TASK-OPS-001)
+	if (json_response.find("\"error\":\"max_retries_exceeded\"") != std::string::npos) {
+		fprintf(stderr, "[AI_FILTER] All retries exhausted, using degradation score\\n");
+		// Check environment variable for custom default score
+		if (const char* env_default = std::getenv("AI_FILTER_DEFAULT_SCORE")) {
+			try {
+				return std::stod(env_default);
+			} catch (...) {
+				return DEFAULT_DEGRADATION_SCORE;
+			}
+		}
+		return DEFAULT_DEGRADATION_SCORE;
+	}
 
 	// Strategy 1: Look for "content": "number" pattern
 	size_t content_pos = json_response.find("\"content\":");
 	if (content_pos != string::npos) {
-		// Find the colon after "content"
 		size_t colon_pos = json_response.find(":", content_pos);
 		if (colon_pos != string::npos) {
-			// Find the opening quote after colon
 			size_t quote_start = json_response.find("\"", colon_pos);
 			if (quote_start != string::npos) {
-				quote_start++; // Skip the quote
-
-				// Find the closing quote
+				quote_start++;
 				size_t quote_end = json_response.find("\"", quote_start);
 				if (quote_end != string::npos) {
 					string value_str = json_response.substr(quote_start, quote_end - quote_start);
-
-					// Try to parse as number
 					try {
 						double score = std::stod(value_str);
-						// Clamp to [0, 1]
 						if (score < 0.0) score = 0.0;
 						if (score > 1.0) score = 1.0;
 						return score;
@@ -116,22 +187,14 @@ static double ExtractScore(const string &json_response) {
 	}
 
 	// Strategy 2: Search for any decimal number in the response
-	// Look for patterns like 0.75, 0.8, 0.123, etc.
 	for (size_t i = 0; i < json_response.length() - 3; i++) {
-		// Look for digit followed by decimal point
-		if (json_response[i] >= '0' && json_response[i] <= '9' &&
-		    json_response[i + 1] == '.') {
-			// Found potential number start
+		if (json_response[i] >= '0' && json_response[i] <= '9' && json_response[i + 1] == '.') {
 			size_t start = i;
 			size_t end = i + 2;
-
-			// Find end of number
 			while (end < json_response.length() &&
-			       ((json_response[end] >= '0' && json_response[end] <= '9') ||
-			        json_response[end] == '.')) {
+			       ((json_response[end] >= '0' && json_response[end] <= '9') || json_response[end] == '.')) {
 				end++;
 			}
-
 			string num_str = json_response.substr(start, end - start);
 			try {
 				double score = std::stod(num_str);
@@ -144,8 +207,12 @@ static double ExtractScore(const string &json_response) {
 		}
 	}
 
-	return 0.5; // Default if parsing fails
+	return DEFAULT_DEGRADATION_SCORE; // Default if parsing fails
 }
+
+// ============================================================================
+// AI Filter Function (unchanged)
+// ============================================================================
 
 static void AIFilterFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &image_vector = args.data[0];  // VARCHAR (base64 or placeholder)
@@ -164,8 +231,8 @@ static void AIFilterFunction(DataChunk &args, ExpressionState &state, Vector &re
 			    model_str = DEFAULT_MODEL;
 		    }
 
-		    // Call AI API with actual image data
-		    string response = CallAI_API(image_str, prompt_str, model_str);
+		    // Call AI API with retry logic (TASK-OPS-001)
+		    string response = CallAI_API_WithRetry(image_str, prompt_str, model_str);
 
 		    // Extract score from response
 		    double score = ExtractScore(response);
@@ -178,37 +245,33 @@ static void AIFilterFunction(DataChunk &args, ExpressionState &state, Vector &re
 }
 
 // ============================================================================
-// Batch Processing: ai_filter_batch with concurrent requests
+// Batch Processing (unchanged)
 // ============================================================================
 
-// Configuration for batch processing
 struct BatchConfig {
 	static constexpr size_t DEFAULT_BATCH_SIZE = 10;
 	static constexpr size_t MAX_CONCURRENT = 5;
 	static constexpr int REQUEST_TIMEOUT_SEC = 30;
 };
 
-// Single request result
 struct BatchResult {
 	size_t index;
 	double score;
 };
 
-// Process single image (thread-safe)
 static BatchResult ProcessSingleImage(size_t idx, const string &image, const string &prompt, const string &model) {
-	string response = CallAI_API(image, prompt, model);
+	string response = CallAI_API_WithRetry(image, prompt, model);
 	double score = ExtractScore(response);
 	return BatchResult{idx, score};
 }
 
 static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &image_vector = args.data[0];  // VARCHAR (base64)
-	auto &prompt_vector = args.data[1]; // VARCHAR
-	auto &model_vector = args.data[2];  // VARCHAR
+	auto &image_vector = args.data[0];
+	auto &prompt_vector = args.data[1];
+	auto &model_vector = args.data[2];
 
 	size_t row_count = args.size();
 
-	// Unified input vectors for batch processing
 	UnifiedVectorFormat image_format;
 	UnifiedVectorFormat prompt_format;
 	UnifiedVectorFormat model_format;
@@ -217,14 +280,11 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 	prompt_vector.ToUnifiedFormat(row_count, prompt_format);
 	model_vector.ToUnifiedFormat(row_count, model_format);
 
-	// Prepare data for batch processing
 	vector<string> images(row_count);
 	vector<string> prompts(row_count);
 	vector<string> models(row_count);
 
-	// Extract data from vectors
 	for (size_t i = 0; i < row_count; i++) {
-		// Get image
 		auto image_idx = image_format.sel->get_index(i);
 		if (!image_format.validity.RowIsValid(image_idx)) {
 			images[i] = "";
@@ -233,7 +293,6 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 			images[i] = image_val.GetString();
 		}
 
-		// Get prompt
 		auto prompt_idx = prompt_format.sel->get_index(i);
 		if (!prompt_format.validity.RowIsValid(prompt_idx)) {
 			prompts[i] = "";
@@ -242,7 +301,6 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 			prompts[i] = prompt_val.GetString();
 		}
 
-		// Get model
 		auto model_idx = model_format.sel->get_index(i);
 		if (!model_format.validity.RowIsValid(model_idx)) {
 			models[i] = DEFAULT_MODEL;
@@ -253,21 +311,17 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 		}
 	}
 
-	// Process in batches with concurrency
-	vector<double> scores(row_count, 0.5); // Default scores
+	vector<double> scores(row_count, DEFAULT_DEGRADATION_SCORE);
 	vector<future<BatchResult>> futures;
 
 	for (size_t i = 0; i < row_count; i++) {
-		// Skip empty images
 		if (images[i].empty() || prompts[i].empty()) {
-			scores[i] = 0.5;
+			scores[i] = DEFAULT_DEGRADATION_SCORE;
 			continue;
 		}
 
-		// Launch async request
 		futures.push_back(async(launch::async, ProcessSingleImage, i, images[i], prompts[i], models[i]));
 
-		// Wait if we reached max concurrent
 		if (futures.size() >= BatchConfig::MAX_CONCURRENT) {
 			for (auto &f : futures) {
 				BatchResult res = f.get();
@@ -277,13 +331,11 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 		}
 	}
 
-	// Wait for remaining futures
 	for (auto &f : futures) {
 		BatchResult res = f.get();
 		scores[res.index] = res.score;
 	}
 
-	// Write results
 	auto result_data = FlatVector::GetData<double>(result);
 	for (size_t i = 0; i < row_count; i++) {
 		result_data[i] = scores[i];
@@ -292,36 +344,28 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 	result.SetVectorType(VectorType::FLAT_VECTOR);
 }
 
+// ============================================================================
+// Function Registration (unchanged)
+// ============================================================================
+
 ScalarFunction AIFunctions::GetAIFilterFunction() {
-	// ai_filter(image VARCHAR, prompt VARCHAR, model VARCHAR) -> DOUBLE
 	ScalarFunction ai_filter_function("ai_filter",
 	                                  {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
 	                                  LogicalType::DOUBLE, AIFilterFunction);
-
-	// Mark as volatile since API results vary
 	ai_filter_function.SetStability(FunctionStability::VOLATILE);
-
 	return ai_filter_function;
 }
 
 ScalarFunction AIFunctions::GetAIFilterBatchFunction() {
-	// ai_filter_batch(image VARCHAR, prompt VARCHAR, model VARCHAR) -> DOUBLE
-	// Uses concurrent HTTP requests for better throughput
 	ScalarFunction ai_filter_batch_function("ai_filter_batch",
 	                                        {LogicalType::VARCHAR, LogicalType::VARCHAR, LogicalType::VARCHAR},
 	                                        LogicalType::DOUBLE, AIFilterBatchFunction);
-
-	// Mark as volatile since API results vary
 	ai_filter_batch_function.SetStability(FunctionStability::VOLATILE);
-
 	return ai_filter_batch_function;
 }
 
 void AIFunctions::RegisterScalarFunctions(ExtensionLoader &loader) {
-	// Register AI_filter function (original, sequential)
 	loader.RegisterFunction(GetAIFilterFunction());
-
-	// Register AI_filter_batch function (concurrent)
 	loader.RegisterFunction(GetAIFilterBatchFunction());
 }
 
