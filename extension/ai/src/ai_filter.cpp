@@ -36,17 +36,20 @@ static constexpr char DEFAULT_MODEL[] = "chatgpt-4o-latest";
 
 // Execute curl command and return response
 static string CallAI_API(const string &image, const string &prompt, const string &model) {
-	// Build JSON request body with actual image analysis prompt
+	// Build JSON request body using GPT-4o Vision API format
+	// Reference: https://platform.openai.com/docs/guides/vision
 	std::ostringstream json_body;
-	json_body << "{\"model\":\"" << model << "\","
-	          << "\"messages\":[{\"role\":\"user\",\"content\":\""
-	          << "You are an image analysis assistant. I will provide you with a base64-encoded image. "
-	          << "Analyze how well the image matches the description: '" << prompt << "'. "
-	          << "Rate the similarity as a decimal number between 0.0 (not similar) and 1.0 (very similar). "
-	          << "Image data (base64): " << image << " "
-	          << "Respond with ONLY the number, nothing else."
-	          << "\"}],"
-	          << "\"max_tokens\":10}";
+	json_body << "{"
+	          << "\"model\":\"" << model << "\","
+	          << "\"messages\":[{"
+	          << "\"role\":\"user\","
+	          << "\"content\":["
+	          << "{\"type\":\"text\",\"text\":\"You are an image analysis assistant. Analyze how well the image matches: "
+	          << prompt << ". Rate similarity 0.0-1.0. Respond ONLY the number.\"},"
+	          << "{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64," << image << "\"}}"
+	          << "]}],"
+	          << "\"max_tokens\":10"
+	          << "}";
 
 	// Build curl command
 	std::ostringstream curl_cmd;
