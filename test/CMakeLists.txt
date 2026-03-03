@@ -36,6 +36,11 @@ if(NOT WIN32 AND NOT SUN)
   endif()
 endif()
 
+# AI Extension Google Mock Unit Tests (optional, separate from main unittest)
+if(BUILD_AI_UNITTESTS AND NOT WIN32)
+  add_subdirectory(ai_unittest)
+endif()
+
 set(UNITTEST_ROOT_DIRECTORY
     ""
     CACHE

@@ -1,11 +1,14 @@
 //===----------------------------------------------------------------------===//
 //                         DuckDB
 //
-// ai_filter.cpp - Enhanced with Retry Logic and Error Handling
+// ai_filter.cpp - Enhanced with Retry Logic, Error Handling, and DI
 //   TASK-OPS-001: 错误处理和重试机制
+//   TASK-COV-001: Dependency Injection for Google Mock testing
 //===----------------------------------------------------------------------===//
 
 #include "ai_functions.hpp"
+#include "http_client_interface.hpp"
+#include "ai_function_executor.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
 #include "duckdb/planner/expression/bound_function_expression.hpp"
@@ -30,27 +33,27 @@ namespace duckdb {
 // Configuration
 // ============================================================================
 
-// API Configuration
-static constexpr char API_KEY[] = "sk-sxWGh4hWeExbe8sqZEkgBi4E9l8E53oaAaoYEzjxbzR5IOgk";
-static constexpr char BASE_URL[] = "https://chatapi.littlewheat.com";
 static constexpr char DEFAULT_MODEL[] = "chatgpt-4o-latest";
+static constexpr double DEFAULT_DEGRADATION_SCORE = 0.5;
 
-// Retry Configuration (TASK-OPS-001)
-static constexpr int MAX_RETRIES = 3;              // Maximum retry attempts
-static constexpr int BASE_DELAY_MS = 100;          // Initial delay (100ms)
-static constexpr int MAX_DELAY_MS = 5000;          // Maximum backoff delay (5s)
-static constexpr int HTTP_TIMEOUT_SEC = 30;        // HTTP request timeout
-static constexpr double DEFAULT_DEGRADATION_SCORE = 0.5;  // Fallback score
+// ============================================================================
+// Global Executor (for backward compatibility)
+// ============================================================================
 
-// Test Mode Configuration (for coverage testing)
-// Set AI_FILTER_TEST_MODE to:
-//   "success" - Return successful JSON response
-//   "retry"   - Simulate retry scenario (fail then succeed)
-//   "fail"    - Always fail (max retries)
-//   "invalid" - Return invalid JSON for parsing fallback
-//   ""        - Normal mode (call real API)
+static std::unique_ptr<AIFunctionExecutor> g_global_executor;
+static std::once_flag g_executor_init_flag;
 
-// Get delay for exponential backoff with jitter
+static AIFunctionExecutor& GetGlobalExecutor() {
+	std::call_once(g_executor_init_flag, []() {
+		g_global_executor = std::make_unique<AIFunctionExecutor>();
+	});
+	return *g_global_executor;
+}
+
+// ============================================================================
+// Legacy static functions (backward compatibility)
+// ============================================================================
+
 static int GetRetryDelayMs(int attempt) {
 	// Exponential backoff: BASE_DELAY_MS * 2^attempt
 	int delay = BASE_DELAY_MS * (1 << attempt);
@@ -63,119 +66,8 @@ static int GetRetryDelayMs(int attempt) {
 	return std::max(0, delay);
 }
 
-// ============================================================================
-// Enhanced HTTP Call with Retry Logic (TASK-OPS-001)
-// ============================================================================
-
 static string CallAI_API_WithRetry(const string &image, const string &prompt, const string &model) {
-	// Check for test mode (for coverage testing)
-	if (const char* test_mode = std::getenv("AI_FILTER_TEST_MODE")) {
-		std::string test_mode_str(test_mode);
-		static std::atomic<int> call_count{0};
-		int current_call = call_count.fetch_add(1);
-
-		if (test_mode_str == "success") {
-			// Return successful response
-			return "{\"choices\":[{\"message\":{\"content\":\"0.85\"}}]}";
-		} else if (test_mode_str == "retry") {
-			// Fail on first attempt, succeed on second
-			if (current_call % 2 == 1) {
-				fprintf(stderr, "[AI_FILTER_RETRY] Test mode: simulating failure on attempt %d\\n", current_call);
-				return "{\"error\":\"simulated_error\"}";
-			}
-			fprintf(stderr, "[AI_FILTER_RETRY] Test mode: success on attempt %d\\n", current_call);
-			return "{\"choices\":[{\"message\":{\"content\":\"0.75\"}}]}";
-		} else if (test_mode_str == "fail") {
-			// Always fail
-			return "{\"error\":\"max_retries_exceeded\"}";
-		} else if (test_mode_str == "invalid") {
-			// Return invalid JSON (no "content" key) - triggers Strategy 2
-			return "{\"data\":\"some random value with 0.67 number inside\"}";
-		}
-		// If test_mode is unknown, fall through to normal API call
-	}
-
-	// Build JSON request body
-	std::ostringstream json_body;
-	json_body << "{"
-	          << "\"model\":\"" << model << "\","
-	          << "\"messages\":[{"
-	          << "\"role\":\"user\","
-	          << "\"content\":["
-	          << "{\"type\":\"text\",\"text\":\"You are an image analysis assistant. Analyze how well the image matches: "
-	          << prompt << ". Rate similarity 0.0-1.0. Respond ONLY the number.\"},"
-	          << "{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64," << image << "\"}}"
-	          << "]}],"
-	          << "\"max_tokens\":10"
-	          << "}";
-
-	std::string json_payload = json_body.str();
-
-	// Retry loop with exponential backoff
-	for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-		// Build curl command with timeout
-		std::ostringstream curl_cmd;
-		curl_cmd << "curl -s "
-		         << "--connect-timeout " << HTTP_TIMEOUT_SEC << " "
-		         << "--max-time " << (HTTP_TIMEOUT_SEC + 5) << " "
-		         << "'" << BASE_URL << "/v1/chat/completions' "
-		         << "-H 'Authorization: Bearer " << API_KEY << "' "
-		         << "-H 'Content-Type: application/json' "
-		         << "-d '" << json_payload << "'";
-
-		// Execute curl command
-		FILE* pipe = popen(curl_cmd.str().c_str(), "r");
-		if (!pipe) {
-			// Log error to stderr (visible in DuckDB logs)
-			fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: popen failed\\n", attempt);
-
-			if (attempt < MAX_RETRIES) {
-				int delay = GetRetryDelayMs(attempt);
-				std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-				continue;
-			}
-			break;  // Give up after max retries
-		}
-
-		// Read response
-		char buffer[4096];
-		std::ostringstream response;
-		size_t total_read = 0;
-		while (fgets(buffer, sizeof(buffer), pipe) != nullptr && total_read < 100000) {
-			response << buffer;
-			total_read += strlen(buffer);
-		}
-
-		int status = pclose(pipe);
-
-		// Check for errors
-		std::string response_str = response.str();
-		if (status != 0 || response_str.empty() || response_str.find("error") != std::string::npos) {
-			fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: HTTP error (status=%d, len=%zu)\\n",
-			        attempt, status, response_str.length());
-
-			if (attempt < MAX_RETRIES) {
-				int delay = GetRetryDelayMs(attempt);
-				std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-				continue;
-			}
-			break;  // Give up after max retries
-		}
-
-		// Success!
-		if (attempt > 0) {
-			fprintf(stderr, "[AI_FILTER_RETRY] Attempt %d: Success after retry\\n", attempt);
-		}
-		return response_str;
-	}
-
-	// All retries exhausted - return error marker
-	return "{\"error\":\"max_retries_exceeded\"}";
-}
-
-// Legacy wrapper (for backward compatibility)
-static string CallAI_API(const string &image, const string &prompt, const string &model) {
-	return CallAI_API_WithRetry(image, prompt, model);
+	return GetGlobalExecutor().CallAPIWithRetry(image, prompt, model);
 }
 
 // ============================================================================
@@ -242,19 +134,18 @@ static double ExtractScore(const string &json_response) {
 		}
 	}
 
-	return DEFAULT_DEGRADATION_SCORE; // Default if parsing fails
+	return DEFAULT_DEGRADATION_SCORE;
 }
 
 // ============================================================================
-// AI Filter Function (unchanged)
+// AI Filter Function
 // ============================================================================
 
 static void AIFilterFunction(DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &image_vector = args.data[0];  // VARCHAR (base64 or placeholder)
-	auto &prompt_vector = args.data[1]; // VARCHAR
-	auto &model_vector = args.data[2];  // VARCHAR
+	auto &image_vector = args.data[0];
+	auto &prompt_vector = args.data[1];
+	auto &model_vector = args.data[2];
 
-	// Execute for each row
 	TernaryExecutor::Execute<string_t, string_t, string_t, double>(
 	    image_vector, prompt_vector, model_vector, result, args.size(),
 	    [&](string_t image, string_t prompt, string_t model) {
@@ -266,21 +157,17 @@ static void AIFilterFunction(DataChunk &args, ExpressionState &state, Vector &re
 			    model_str = DEFAULT_MODEL;
 		    }
 
-		    // Call AI API with retry logic (TASK-OPS-001)
 		    string response = CallAI_API_WithRetry(image_str, prompt_str, model_str);
-
-		    // Extract score from response
 		    double score = ExtractScore(response);
 
 		    return score;
 	    });
 
-	// Mark result as volatile (API results can vary)
 	result.SetVectorType(VectorType::FLAT_VECTOR);
 }
 
 // ============================================================================
-// Batch Processing (unchanged)
+// Batch Processing
 // ============================================================================
 
 struct BatchConfig {
@@ -380,7 +267,7 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 }
 
 // ============================================================================
-// Function Registration (unchanged)
+// Function Registration
 // ============================================================================
 
 ScalarFunction AIFunctions::GetAIFilterFunction() {
