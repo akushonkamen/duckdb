@@ -312,7 +312,7 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 	}
 
 	vector<double> scores(row_count, DEFAULT_DEGRADATION_SCORE);
-	vector<future<BatchResult>> futures;
+	vector<std::future<BatchResult>> futures;
 
 	for (size_t i = 0; i < row_count; i++) {
 		if (images[i].empty() || prompts[i].empty()) {
@@ -320,7 +320,7 @@ static void AIFilterBatchFunction(DataChunk &args, ExpressionState &state, Vecto
 			continue;
 		}
 
-		futures.push_back(async(launch::async, ProcessSingleImage, i, images[i], prompts[i], models[i]));
+		futures.push_back(std::async(std::launch::async, ProcessSingleImage, i, images[i], prompts[i], models[i]));
 
 		if (futures.size() >= BatchConfig::MAX_CONCURRENT) {
 			for (auto &f : futures) {
