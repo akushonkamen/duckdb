@@ -1427,3 +1427,334 @@ Message: feat(duckdb): [TASK-TEST-002] 增强测试覆盖率
 **状态**：🔍 待巡检
 
 ---
+
+### 【Tech Lead】TASK-K-001 接口要求确认 【2026-03-03】
+
+**新任务：实现 AI_join/AI_window 底层 UDF**
+
+请实现以下函数（优先级按顺序）：
+
+1. **ai_similarity(vec1, vec2, model) -> DOUBLE**
+   ```sql
+   ai_similarity(
+       vec1 FLOAT[],      -- 左侧向量嵌入
+       vec2 FLOAT[],      -- 右侧向量嵌入
+       model VARCHAR      -- 模型名称（如 "clip"）
+   ) -> DOUBLE           -- 返回 0.0-1.0 相似度分数
+   ```
+   - 余弦相似度计算
+   - 用于 AI_join 算子
+
+2. **ai_predict(column, prompt, model) -> DOUBLE**
+   ```sql
+   ai_predict(
+       column VARCHAR,    -- 输入数据（如 base64 图像）
+       prompt VARCHAR,    -- 提示词
+       model VARCHAR      -- 模型名称
+   ) -> DOUBLE           -- 返回预测分数
+   ```
+   - 配合 SQL OVER 子句使用
+   - 用于 AI_window 算子
+   - 可以延后实现
+
+**请在 Discussion.md 回复确认理解后开始编码。**
+
+---
+
+### 【duckdb-engineer】TASK-K-001 可行性评估与理解确认 【2026-03-03】
+
+#### 1. 理解确认
+
+**任务目标：** 实现 AI_join 和 AI_window 算子的底层 DuckDB UDF 支持
+
+**接口要求（来自 Tech Lead）：**
+
+1. **ai_similarity(vec1, vec2, model) -> DOUBLE** ✅
+   ```sql
+   ai_similarity(
+       vec1 FLOAT[],      -- 左侧向量嵌入
+       vec2 FLOAT[],      -- 右侧向量嵌入
+       model VARCHAR      -- 模型名称（如 "clip"）
+   ) -> DOUBLE           -- 返回 0.0-1.0 相似度分数
+   ```
+   - 余弦相似度计算（ScalarFunction）
+   - 用于 AI_join 算子
+   - **技术方案：** 使用 `LogicalType::LIST(LogicalType::FLOAT)`
+
+2. **ai_predict(column, prompt, model) -> DOUBLE** ⏸️
+   ```sql
+   ai_predict(
+       column VARCHAR,    -- 输入数据（如 base64 图像）
+       prompt VARCHAR,    -- 提示词
+       model VARCHAR      -- 模型名称
+   ) -> DOUBLE           -- 返回预测分数
+   ```
+   - 配合 SQL OVER 子句使用
+   - 用于 AI_window 算子
+   - **技术方案：** ScalarFunction，通过 OVER 子句实现窗口效果
+   - **可以延后实现**
+
+#### 2. 技术方案确认
+
+**ai_similarity 实现：**
+```cpp
+// ScalarFunction with LIST type
+ScalarFunctionSet ai_similarity_set;
+auto function = ScalarFunction(
+    {LogicalType::LIST(LogicalType::FLOAT),   // vec1
+     LogicalType::LIST(LogicalType::FLOAT),   // vec2
+     LogicalType::VARCHAR},                   // model
+    LogicalType::DOUBLE,                      // 返回值
+    AISimilarityFunction                      // 实现函数
+);
+ai_similarity_set.AddFunction(function);
+loader.RegisterFunction(ai_similarity_set);
+```
+
+**余弦相似度算法：**
+```cpp
+static double CosineSimilarity(const float *left, const float *right, idx_t size) {
+    double dot_product = 0.0;
+    double norm_left = 0.0;
+    double norm_right = 0.0;
+    for (idx_t i = 0; i < size; i++) {
+        dot_product += left[i] * right[i];
+        norm_left += left[i] * left[i];
+        norm_right += right[i] * right[i];
+    }
+    return dot_product / (sqrt(norm_left) * sqrt(norm_right));
+}
+```
+
+**ai_predict 实现：**
+- 实际上可以复用现有的 `ai_filter` 函数
+- 或者创建一个新的 ScalarFunction 包装 `ai_filter`
+- SQL OVER 子句由 DuckDB 引擎自动处理
+
+**示例用法：**
+```sql
+-- ai_similarity 用于 JOIN
+SELECT l.id, r.id, ai_similarity(l.embedding, r.embedding, 'clip') AS similarity
+FROM left_table l
+CROSS JOIN right_table r
+WHERE ai_similarity(l.embedding, r.embedding, 'clip') > 0.8;
+
+-- ai_predict 用于 WINDOW
+SELECT
+    id,
+    ai_predict(image, 'cat', 'clip') OVER (
+        PARTITION BY category
+        ORDER BY timestamp
+        ROWS BETWEEN 3 PRECEDING AND CURRENT ROW
+    ) AS window_score
+FROM images;
+```
+
+#### 3. 风险预警
+
+**🟡 中风险项：**
+
+1. **LIST 类型处理**
+   - DuckDB 的 LIST 类型需要使用 `UnifiedVectorFormat` 正确访问
+   - 需要处理 NULL 和不同长度的向量
+   - **解决方案：** 参考现有的 `list_aggregates.cpp` 实现
+
+2. **性能考虑**
+   - ai_similarity 用于 CROSS JOIN 时可能计算量巨大
+   - **建议：** Daft 侧应该先进行粗筛，再调用 ai_similarity
+
+3. **ai_predict + OVER 的语义**
+   - OVER 子句不会自动向量化处理
+   - 每行仍会单独调用函数
+   - **建议：** 考虑实现批处理版本 `ai_predict_batch`
+
+#### 4. 实施计划
+
+**阶段 1：ai_similarity 实现（优先级 1）**
+1. 创建 `extension/ai/src/ai_similarity.cpp`
+2. 实现 `AISimilarityFunction` 标量函数
+3. 实现 `CosineSimilarity` 辅助函数
+4. 处理 LIST 类型输入（UnifiedVectorFormat）
+5. 添加单元测试
+
+**阶段 2：ai_predict 实现（优先级 2，可延后）**
+1. 创建 `extension/ai/src/ai_predict.cpp`
+2. 实现标量函数（可能复用 ai_filter）
+3. 添加 OVER 子句测试用例
+4. 性能基准测试
+
+#### 5. 待确认问题
+
+1. **model 参数用途：** ai_similarity 中的 model 参数是否影响相似度计算？（目前考虑仅用于记录，实际余弦相似度计算不依赖模型）
+
+2. **向量维度：** 是否需要验证两个向量的维度相同？如何处理不同维度的情况？
+
+3. **NULL 处理：** 如果任一向量为 NULL，应该返回 NULL 还是 0.0？
+
+4. **ai_predict 优先级：** 是否立即实现，还是先完成 ai_similarity？
+
+**理解确认完成，等待 Tech Lead 批准后开始编码。**
+
+---
+
+### 【duckdb-engineer】完成报告：TASK-K-001 ai_similarity 实现 【2026-03-03】
+
+#### 1. 变更清单
+- `extension/ai/ai_extension_loadable.cpp` - 添加 ai_similarity 函数实现
+- `extension/ai/src/ai_similarity.cpp` - 模块化实现（供将来使用）
+- `extension/ai/include/ai_functions.hpp` - 添加函数声明
+- `extension/ai/src/ai_filter.cpp` - 注册函数
+- `extension/ai/CMakeLists.txt` - 添加源文件
+- `extension/ai/tests/test_ai_similarity.sh` - 测试套件（13 个测试）
+
+#### 2. 实现功能
+
+**ai_similarity 函数签名：**
+```sql
+ai_similarity(vec1 FLOAT[], vec2 FLOAT[], model VARCHAR) -> DOUBLE
+```
+
+**功能特性：**
+- ✅ 余弦相似度计算
+- ✅ 向量维度验证（相同维度要求）
+- ✅ NULL 处理（任一输入为 NULL 返回 NULL）
+- ✅ 空向量处理（返回 NULL）
+- ✅ 结果范围 [0.0, 1.0]
+- ✅ CONSISTENT 稳定性（确定性计算）
+
+#### 3. 测试结果
+
+**13 个测试全部通过 ✅：**
+
+| 测试类别 | 测试项 | 结果 |
+|---------|--------|------|
+| 函数注册 | ai_similarity 已注册 | ✅ |
+| 基本计算 | 相同向量（相似度 1.0） | ✅ |
+| 基本计算 | 正交向量（相似度 0.0） | ✅ |
+| 基本计算 | 相似向量（高相似度） | ✅ |
+| NULL 处理 | 左侧 NULL | ✅ |
+| NULL 处理 | 右侧 NULL | ✅ |
+| 维度验证 | 维度不匹配（2 vs 3） | ✅ |
+| JOIN 用法 | CROSS JOIN 场景 | ✅ |
+| WHERE 集成 | 阈值过滤 | ✅ |
+| 批处理 | 多行向量处理 | ✅ |
+| 边界情况 | 空向量 | ✅ |
+| 边界情况 | 单维度向量 | ✅ |
+| 边界情况 | 高维向量（10 维） | ✅ |
+
+**测试输出：**
+```
+=== ai_similarity Function Test Suite ===
+✅ Extension found
+✅ DuckDB binary found
+...
+==================================================
+Test Results: 13 passed, 0 failed
+==================================================
+✅ All tests passed!
+```
+
+#### 4. 使用示例
+
+**基本用法：**
+```sql
+SELECT ai_similarity([1.0, 2.0, 3.0], [1.0, 2.0, 3.0], 'clip') AS similarity;
+-- 结果: 1.0
+```
+
+**JOIN 场景：**
+```sql
+SELECT l.id, r.id, ai_similarity(l.embedding, r.embedding, 'clip') AS similarity
+FROM left_table l
+CROSS JOIN right_table r
+WHERE ai_similarity(l.embedding, r.embedding, 'clip') > 0.8;
+```
+
+**WHERE 过滤：**
+```sql
+SELECT * FROM images
+WHERE ai_similarity(embedding, query_vector, 'clip') > 0.75;
+```
+
+#### 5. 性能特性
+
+- **计算复杂度**: O(n)，n 为向量维度
+- **内存开销**: 最小化（无额外分配）
+- **线程安全**: 是（无状态函数）
+- **批处理支持**: 是（通过 Vector 执行）
+
+#### 6. 与 Daft 集成
+
+**SQL 转 Daft 映射：**
+```python
+# Daft 侧调用
+df.join(
+    other_df,
+    on=lambda left, right: left["embedding"].similarity(right["embedding"]) > 0.8
+)
+
+# 转换为 DuckDB SQL
+SELECT * FROM left_table l
+JOIN right_table r
+ON ai_similarity(l.embedding, r.embedding, 'clip') > 0.8
+```
+
+#### 7. 遗留问题
+
+**无关键问题**：
+- ✅ 所有验收标准已满足
+- ✅ 测试覆盖完整
+- ⏸️ ai_predict 实现延后（按 Tech Lead 批准）
+
+#### 8. Git Commit
+
+**待 Tech Lead 执行 sync 后提交。**
+
+---
+
+### 【Tech Lead】TASK-K-001 ai_similarity 完成 【2026-03-03】
+
+**验收结果：** ✅ **批准**
+
+**验收清单：**
+- ✅ ai_similarity 函数实现完成
+- ✅ 13 个测试全部通过
+- ✅ NULL 处理正确
+- ✅ 维度验证有效
+- ✅ JOIN 场景测试通过
+- ✅ 文档完整
+
+**M1 阶段进度：**
+- ✅ ai_filter（已完成）
+- ✅ ai_similarity（已完成）
+- ⏸️ ai_predict（延后）
+
+---
+
+### 【Tech Lead】批准 TASK-K-001 执行 【2026-03-03】
+
+**问题答复：**
+
+1. **model 参数用途**：
+   - 当前仅用于记录/日志
+   - 未来可扩展为模型特定的相似度计算
+   - MVP 阶段：使用统一的余弦相似度
+
+2. **向量维度验证**：
+   - ✅ 必须验证维度相同
+   - 不同维度时：抛出异常或返回 NULL
+   - 建议：抛出 `InvalidInputException` 更清晰
+
+3. **NULL 处理**：
+   - 任一向量为 NULL → 返回 NULL（不是 0.0）
+   - 符合 SQL 标准语义
+
+4. **ai_predict 优先级**：
+   - ⏸️ 延后，先完成 ai_similarity
+   - ai_predict 实际可复用 ai_filter 逻辑
+
+**批准开始实现 ai_similarity！**
+
+技术方案 ✅ 通过，风险预警已记录。请按阶段 1 计划执行。
+
+---

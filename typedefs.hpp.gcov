@@ -1,0 +1,87 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/src/include/duckdb/common/typedefs.hpp
+        -:    0:Graph:build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// duckdb/common/typedefs.hpp
+        -:    5://
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#pragma once
+        -:   10:
+        -:   11:#include <cstdint>
+        -:   12:
+        -:   13:namespace duckdb {
+        -:   14:
+        -:   15://! a saner size_t for loop indices etc
+        -:   16:typedef uint64_t idx_t;
+        -:   17:
+        -:   18://! The type used for row identifiers
+        -:   19:typedef int64_t row_t;
+        -:   20:
+        -:   21://! The type used for hashes
+        -:   22:typedef uint64_t hash_t;
+        -:   23:
+        -:   24://! data pointers
+        -:   25:typedef uint8_t data_t;
+        -:   26:typedef data_t *data_ptr_t;
+        -:   27:typedef const data_t *const_data_ptr_t;
+        -:   28:
+        -:   29://! Type used for the selection vector
+        -:   30:typedef uint32_t sel_t;
+        -:   31://! Type used for transaction timestamps
+        -:   32:typedef idx_t transaction_t;
+        -:   33:
+        -:   34://! Type used to identify connections
+        -:   35:typedef idx_t connection_t;
+        -:   36:
+        -:   37://! Type used for column identifiers
+        -:   38:typedef idx_t column_t;
+        -:   39://! Type used for storage (column) identifiers
+        -:   40:typedef idx_t storage_t;
+        -:   41:
+        -:   42:template <class SRC>
+        -:   43:data_ptr_t data_ptr_cast(SRC *src) { // NOLINT: naming
+        -:   44:	return reinterpret_cast<data_ptr_t>(src);
+        -:   45:}
+        -:   46:
+        -:   47:template <class SRC>
+        -:   48:const_data_ptr_t const_data_ptr_cast(const SRC *src) { // NOLINT: naming
+        -:   49:	return reinterpret_cast<const_data_ptr_t>(src);
+        -:   50:}
+        -:   51:
+        -:   52:template <class SRC>
+        -:   53:char *char_ptr_cast(SRC *src) { // NOLINT: naming
+        -:   54:	return reinterpret_cast<char *>(src);
+        -:   55:}
+        -:   56:
+        -:   57:template <class SRC>
+       56:   58:const char *const_char_ptr_cast(const SRC *src) { // NOLINT: naming
+       56:   59:	return reinterpret_cast<const char *>(src);
+        -:   60:}
+        -:   61:
+        -:   62:template <class SRC>
+        -:   63:const unsigned char *const_uchar_ptr_cast(const SRC *src) { // NOLINT: naming
+        -:   64:	return reinterpret_cast<const unsigned char *>(src);
+        -:   65:}
+        -:   66:
+        -:   67:template <class SRC>
+        -:   68:uintptr_t CastPointerToValue(SRC *src) {
+        -:   69:	return reinterpret_cast<uintptr_t>(src);
+        -:   70:}
+        -:   71:
+        -:   72:template <class SRC>
+        -:   73:uint64_t cast_pointer_to_uint64(SRC *src) {
+        -:   74:	return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(src));
+        -:   75:}
+        -:   76:
+        -:   77:template <class SRC = data_t>
+        -:   78:SRC *cast_uint64_to_pointer(uint64_t value) {
+        -:   79:	return reinterpret_cast<SRC *>(static_cast<uintptr_t>(value));
+        -:   80:}
+        -:   81:
+        -:   82:} // namespace duckdb

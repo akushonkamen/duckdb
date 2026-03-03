@@ -1,0 +1,45 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/allocator_destructor.h
+        -:    0:Graph:../../build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:../../build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://
+        -:    3:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    4:// See https://llvm.org/LICENSE.txt for license information.
+        -:    5:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#ifndef _LIBCPP___MEMORY_ALLOCATOR_DESTRUCTOR_H
+        -:   10:#define _LIBCPP___MEMORY_ALLOCATOR_DESTRUCTOR_H
+        -:   11:
+        -:   12:#include <__config>
+        -:   13:#include <__memory/allocator_traits.h>
+        -:   14:
+        -:   15:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   16:#  pragma GCC system_header
+        -:   17:#endif
+        -:   18:
+        -:   19:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   20:
+        -:   21:template <class _Alloc>
+        -:   22:class __allocator_destructor {
+        -:   23:  typedef _LIBCPP_NODEBUG allocator_traits<_Alloc> __alloc_traits;
+        -:   24:
+        -:   25:public:
+        -:   26:  typedef _LIBCPP_NODEBUG typename __alloc_traits::pointer pointer;
+        -:   27:  typedef _LIBCPP_NODEBUG typename __alloc_traits::size_type size_type;
+        -:   28:
+        -:   29:private:
+        -:   30:  _Alloc& __alloc_;
+        -:   31:  size_type __s_;
+        -:   32:
+        -:   33:public:
+    #####:   34:  _LIBCPP_HIDE_FROM_ABI __allocator_destructor(_Alloc& __a, size_type __s) _NOEXCEPT : __alloc_(__a), __s_(__s) {}
+    #####:   35:  _LIBCPP_HIDE_FROM_ABI void operator()(pointer __p) _NOEXCEPT { __alloc_traits::deallocate(__alloc_, __p, __s_); }
+        -:   36:};
+        -:   37:
+        -:   38:_LIBCPP_END_NAMESPACE_STD
+        -:   39:
+        -:   40:#endif // _LIBCPP___MEMORY_ALLOCATOR_DESTRUCTOR_H

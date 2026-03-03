@@ -9,6 +9,9 @@ include_directories(include)
 set(AI_EXTENSION_FILES
     src/ai_extension.cpp
     src/ai_filter.cpp
+    src/ai_aggregate.cpp
+    src/ai_similarity.cpp
+    src/http_client.cpp
 )
 
 # Build static extension (for linking into DuckDB)

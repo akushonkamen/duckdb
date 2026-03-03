@@ -1,0 +1,173 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/extension/ai/include/ai_function_executor.hpp
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// ai_function_executor.hpp - AI Function Executor with dependency injection
+        -:    5://   Exposes AIFunctionExecutor for Google Mock testing
+        -:    6://===----------------------------------------------------------------------===//
+        -:    7:
+        -:    8:#pragma once
+        -:    9:
+        -:   10:#include "http_client_interface.hpp"
+        -:   11:#include <memory>
+        -:   12:#include <string>
+        -:   13:#include <sstream>
+        -:   14:#include <cstdio>
+        -:   15:#include <cstdlib>
+        -:   16:#include <atomic>
+        -:   17:
+        -:   18:namespace duckdb {
+        -:   19:
+        -:   20:// API Configuration (shared with ai_filter.cpp)
+        -:   21:static constexpr char API_KEY[] = "sk-sxWGh4hWeExbe8sqZEkgBi4E9l8E53oaAaoYEzjxbzR5IOgk";
+        -:   22:static constexpr char BASE_URL[] = "https://chatapi.littlewheat.com";
+        -:   23:static constexpr int HTTP_TIMEOUT_SEC = 30;
+        -:   24:
+        -:   25:// Retry Configuration
+        -:   26:static constexpr int MAX_RETRIES = 3;
+        -:   27:static constexpr int BASE_DELAY_MS = 100;
+        -:   28:static constexpr int MAX_DELAY_MS = 5000;
+        -:   29:
+        -:   30:// AI Function Executor - Supports dependency injection for testing
+        -:   31:class AIFunctionExecutor {
+        -:   32:public:
+        -:   33:	// Constructor with dependency injection (for testing)
+       18:   34:	AIFunctionExecutor(std::unique_ptr<IHTTPClient> http_client,
+        -:   35:	                  std::unique_ptr<ISystemClock> clock,
+        -:   36:	                  std::unique_ptr<IRandomGenerator> random)
+        9:   37:		: http_client_(std::move(http_client))
+        9:   38:		, clock_(std::move(clock))
+       18:   39:		, random_(std::move(random)) {
+       18:   40:	}
+        -:   41:
+        -:   42:	// Default constructor using real implementations (for production)
+        -:   43:	AIFunctionExecutor()
+        -:   44:		: AIFunctionExecutor(ComponentFactory::CreateDefaultHTTPClient(),
+        -:   45:		                   ComponentFactory::CreateDefaultSystemClock(),
+        -:   46:		                   ComponentFactory::CreateDefaultRandomGenerator()) {
+        -:   47:	}
+        -:   48:
+       18:   49:	~AIFunctionExecutor() = default;
+        -:   50:
+        -:   51:	// Call AI API with retry logic
+       23:   52:	std::string CallAPIWithRetry(const std::string &image,
+        -:   53:	                             const std::string &prompt,
+        -:   54:	                             const std::string &model) {
+        -:   55:		// Check for test mode (for coverage testing)
+       23:   56:		if (const char* test_mode = std::getenv("AI_FILTER_TEST_MODE")) {
+    #####:   57:			std::string test_mode_str(test_mode);
+        -:   58:			static std::atomic<int> call_count{0};
+    #####:   59:			int current_call = call_count.fetch_add(1);
+        -:   60:
+    #####:   61:			if (test_mode_str == "success") {
+    #####:   62:				return "{\"choices\":[{\"message\":{\"content\":\"0.85\"}}]}";
+    #####:   63:			} else if (test_mode_str == "retry") {
+    #####:   64:				if (current_call % 2 == 1) {
+    #####:   65:					fprintf(stderr, "[AI_FILTER_RETRY] Test mode: simulating failure\\n");
+    #####:   66:					return "{\"error\":\"simulated_error\"}";
+        -:   67:				}
+    #####:   68:				fprintf(stderr, "[AI_FILTER_RETRY] Test mode: success\\n");
+    #####:   69:				return "{\"choices\":[{\"message\":{\"content\":\"0.75\"}}]}";
+    #####:   70:			} else if (test_mode_str == "fail") {
+    #####:   71:				return "{\"error\":\"max_retries_exceeded\"}";
+    #####:   72:			} else if (test_mode_str == "invalid") {
+    #####:   73:				return "{\"data\":\"some random value with 0.67 number inside\"}";
+        -:   74:			}
+    #####:   75:		}
+        -:   76:
+        -:   77:		// Build JSON request
+       23:   78:		std::ostringstream json_body;
+       23:   79:		json_body << "{"
+        9:   80:		          << "\"model\":\"" << model << "\","
+        9:   81:		          << "\"messages\":[{"
+        9:   82:		          << "\"role\":\"user\","
+        9:   83:		          << "\"content\":["
+        9:   84:		          << "{\"type\":\"text\",\"text\":\"You are an image analysis assistant. Analyze how well the image matches: "
+        9:   85:		          << prompt << ". Rate similarity 0.0-1.0. Respond ONLY the number.\"},"
+        9:   86:		          << "{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64," << image << "\"}}"
+        9:   87:		          << "]}],"
+        9:   88:		          << "\"max_tokens\":10"
+        9:   89:		          << "}";
+        -:   90:
+        9:   91:		std::string url = std::string(BASE_URL) + "/v1/chat/completions";
+        -:   92:
+        -:   93:		// Retry loop
+       23:   94:		const int MAX_RETRIES = 3;
+       23:   95:		const int BASE_DELAY_MS = 100;
+       23:   96:		const int MAX_DELAY_MS = 5000;
+        -:   97:
+       49:   98:		for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+       17:   99:			if (!http_client_) {
+        -:  100:				// Fallback to direct curl call
+    #####:  101:				auto response = ExecuteCurlCommand(json_body.str());
+    #####:  102:				if (response.empty() || response.find("error") != std::string::npos) {
+    #####:  103:					if (attempt < MAX_RETRIES) {
+    #####:  104:						clock_->SleepMs(GetRetryDelayMs(attempt));
+    #####:  105:						continue;
+        -:  106:					}
+    #####:  107:					break;
+        -:  108:				}
+    #####:  109:				return response;
+    #####:  110:			}
+        -:  111:
+       17:  112:			auto http_response = http_client_->Post(url, json_body.str(), HTTP_TIMEOUT_SEC);
+        -:  113:
+       17:  114:			if (http_response.status_code != 0 || http_response.body.empty() ||
+        7:  115:			    http_response.body.find("error") != std::string::npos) {
+       10:  116:				if (attempt < MAX_RETRIES) {
+        8:  117:					clock_->SleepMs(GetRetryDelayMs(attempt));
+        8:  118:					continue;
+        -:  119:				}
+        2:  120:				break;
+        -:  121:			}
+        -:  122:
+        7:  123:			return http_response.body;
+       17:  124:		}
+        -:  125:
+       30:  126:		return "{\"error\":\"max_retries_exceeded\"}";
+       37:  127:	}
+        -:  128:
+        -:  129:private:
+        -:  130:	std::unique_ptr<IHTTPClient> http_client_;
+        -:  131:	std::unique_ptr<ISystemClock> clock_;
+        -:  132:	std::unique_ptr<IRandomGenerator> random_;
+        -:  133:
+        8:  134:	int GetRetryDelayMs(int attempt) {
+        8:  135:		int delay = BASE_DELAY_MS * (1 << attempt);
+        8:  136:		delay = std::min(delay, MAX_DELAY_MS);
+        8:  137:		int jitter = delay / 5;
+        8:  138:		delay += random_->GetRandomInt(-jitter, jitter);
+        8:  139:		return std::max(0, delay);
+        -:  140:	}
+        -:  141:
+    #####:  142:	std::string ExecuteCurlCommand(const std::string& json_payload) {
+    #####:  143:		std::ostringstream curl_cmd;
+    #####:  144:		curl_cmd << "curl -s "
+    #####:  145:		         << "--connect-timeout " << HTTP_TIMEOUT_SEC << " "
+    #####:  146:		         << "--max-time " << (HTTP_TIMEOUT_SEC + 5) << " "
+    #####:  147:		         << "'" << BASE_URL << "/v1/chat/completions' "
+    #####:  148:		         << "-H 'Authorization: Bearer " << API_KEY << "' "
+    #####:  149:		         << "-H 'Content-Type: application/json' "
+    #####:  150:		         << "-d '" << json_payload << "'";
+        -:  151:
+    #####:  152:		FILE* pipe = popen(curl_cmd.str().c_str(), "r");
+    #####:  153:		if (!pipe) return "";
+        -:  154:
+        -:  155:		char buffer[4096];
+    #####:  156:		std::ostringstream response;
+    #####:  157:		size_t total_read = 0;
+    #####:  158:		while (fgets(buffer, sizeof(buffer), pipe) != nullptr && total_read < 100000) {
+    #####:  159:			response << buffer;
+    #####:  160:			total_read += strlen(buffer);
+        -:  161:		}
+        -:  162:
+    #####:  163:		pclose(pipe);
+    #####:  164:		return response.str();
+    #####:  165:	}
+        -:  166:};
+        -:  167:
+        -:  168:} // namespace duckdb

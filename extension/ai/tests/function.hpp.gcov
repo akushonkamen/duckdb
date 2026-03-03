@@ -1,0 +1,254 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/src/include/duckdb/function/function.hpp
+        -:    0:Graph:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// duckdb/function/function.hpp
+        -:    5://
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#pragma once
+        -:   10:
+        -:   11:#include "duckdb/common/named_parameter_map.hpp"
+        -:   12:#include "duckdb/common/types/data_chunk.hpp"
+        -:   13:#include "duckdb/common/unordered_set.hpp"
+        -:   14:#include "duckdb/main/external_dependencies.hpp"
+        -:   15:#include "duckdb/parser/column_definition.hpp"
+        -:   16:#include "duckdb/common/enums/function_errors.hpp"
+        -:   17:
+        -:   18:namespace duckdb {
+        -:   19:class CatalogEntry;
+        -:   20:class Catalog;
+        -:   21:class ClientContext;
+        -:   22:class Expression;
+        -:   23:class ExpressionExecutor;
+        -:   24:class Transaction;
+        -:   25:
+        -:   26:class AggregateFunction;
+        -:   27:class AggregateFunctionSet;
+        -:   28:class CopyFunction;
+        -:   29:class PragmaFunction;
+        -:   30:class PragmaFunctionSet;
+        -:   31:class ScalarFunctionSet;
+        -:   32:class ScalarFunction;
+        -:   33:class TableFunctionSet;
+        -:   34:class TableFunction;
+        -:   35:class SimpleFunction;
+        -:   36:
+        -:   37:struct PragmaInfo;
+        -:   38:
+        -:   39://! The default null handling is NULL in, NULL out
+        -:   40:enum class FunctionNullHandling : uint8_t { DEFAULT_NULL_HANDLING = 0, SPECIAL_HANDLING = 1 };
+        -:   41://! The stability of the function, used by the optimizer
+        -:   42://! CONSISTENT              -> this function always returns the same result when given the same input, no variance
+        -:   43://! CONSISTENT_WITHIN_QUERY -> this function returns the same result WITHIN the same query/transaction
+        -:   44://!                            but the result might change across queries (e.g. NOW(), CURRENT_TIME)
+        -:   45://! VOLATILE                -> the result of this function might change per row (e.g. RANDOM())
+        -:   46:enum class FunctionStability : uint8_t { CONSISTENT = 0, VOLATILE = 1, CONSISTENT_WITHIN_QUERY = 2 };
+        -:   47:
+        -:   48://! How to handle collations
+        -:   49://! PROPAGATE_COLLATIONS        -> this function combines collation from its inputs and emits them again (default)
+        -:   50://! PUSH_COMBINABLE_COLLATIONS  -> combinable collations are executed for the input arguments
+        -:   51://! IGNORE_COLLATIONS           -> collations are completely ignored by the function
+        -:   52:enum class FunctionCollationHandling : uint8_t {
+        -:   53:	PROPAGATE_COLLATIONS = 0,
+        -:   54:	PUSH_COMBINABLE_COLLATIONS = 1,
+        -:   55:	IGNORE_COLLATIONS = 2
+        -:   56:};
+        -:   57:
+        -:   58:struct FunctionData {
+        -:   59:	DUCKDB_API virtual ~FunctionData();
+        -:   60:
+        -:   61:	DUCKDB_API virtual unique_ptr<FunctionData> Copy() const = 0;
+        -:   62:	DUCKDB_API virtual bool Equals(const FunctionData &other) const = 0;
+        -:   63:	DUCKDB_API static bool Equals(const FunctionData *left, const FunctionData *right);
+        -:   64:	DUCKDB_API virtual bool SupportStatementCache() const;
+        -:   65:
+        -:   66:	template <class TARGET>
+        -:   67:	TARGET &Cast() {
+        -:   68:		DynamicCastCheck<TARGET>(this);
+        -:   69:		return reinterpret_cast<TARGET &>(*this);
+        -:   70:	}
+        -:   71:	template <class TARGET>
+        -:   72:	const TARGET &Cast() const {
+        -:   73:		DynamicCastCheck<TARGET>(this);
+        -:   74:		return reinterpret_cast<const TARGET &>(*this);
+        -:   75:	}
+        -:   76:	// FIXME: this function should be removed in the future
+        -:   77:	template <class TARGET>
+        -:   78:	TARGET &CastNoConst() const {
+        -:   79:		return const_cast<TARGET &>(Cast<TARGET>()); // NOLINT: FIXME
+        -:   80:	}
+        -:   81:};
+        -:   82:
+        -:   83:struct TableFunctionData : public FunctionData {
+        -:   84:	// used to pass on projections to table functions that support them. NB, can contain COLUMN_IDENTIFIER_ROW_ID
+        -:   85:	vector<idx_t> column_ids;
+        -:   86:
+        -:   87:	DUCKDB_API ~TableFunctionData() override;
+        -:   88:
+        -:   89:	DUCKDB_API unique_ptr<FunctionData> Copy() const override;
+        -:   90:	DUCKDB_API bool Equals(const FunctionData &other) const override;
+        -:   91:};
+        -:   92:
+        -:   93:struct FunctionParameters {
+        -:   94:	vector<Value> values;
+        -:   95:	named_parameter_map_t named_parameters;
+        -:   96:};
+        -:   97:
+        -:   98://! Function is the base class used for any type of function (scalar, aggregate or simple function)
+        -:   99:class Function {
+        -:  100:public:
+        -:  101:	DUCKDB_API explicit Function(string name);
+        -:  102:	DUCKDB_API virtual ~Function();
+        -:  103:
+        -:  104:	//! The name of the function
+        -:  105:	string name;
+        -:  106:	//! Additional Information to specify function from it's name
+        -:  107:	string extra_info;
+        -:  108:
+        -:  109:	// Optional catalog name of the function
+        -:  110:	string catalog_name;
+        -:  111:
+        -:  112:	// Optional schema name of the function
+        -:  113:	string schema_name;
+        -:  114:
+        -:  115:public:
+        -:  116:	//! Returns the formatted string name(arg1, arg2, ...)
+        -:  117:	DUCKDB_API static string CallToString(const string &catalog_name, const string &schema_name, const string &name,
+        -:  118:	                                      const vector<LogicalType> &arguments,
+        -:  119:	                                      const LogicalType &varargs = LogicalType::INVALID);
+        -:  120:	//! Returns the formatted string name(arg1, arg2..) -> return_type
+        -:  121:	DUCKDB_API static string CallToString(const string &catalog_name, const string &schema_name, const string &name,
+        -:  122:	                                      const vector<LogicalType> &arguments, const LogicalType &varargs,
+        -:  123:	                                      const LogicalType &return_type);
+        -:  124:	//! Returns the formatted string name(arg1, arg2.., np1=a, np2=b, ...)
+        -:  125:	DUCKDB_API static string CallToString(const string &catalog_name, const string &schema_name, const string &name,
+        -:  126:	                                      const vector<LogicalType> &arguments,
+        -:  127:	                                      const named_parameter_type_map_t &named_parameters);
+        -:  128:
+        -:  129:	//! Used in the bind to erase an argument from a function
+        -:  130:	DUCKDB_API static void EraseArgument(SimpleFunction &bound_function, vector<unique_ptr<Expression>> &arguments,
+        -:  131:	                                     idx_t argument_index);
+        -:  132:};
+        -:  133:
+        -:  134:class SimpleFunction : public Function {
+        -:  135:public:
+        -:  136:	DUCKDB_API SimpleFunction(string name, vector<LogicalType> arguments,
+        -:  137:	                          LogicalType varargs = LogicalType(LogicalTypeId::INVALID));
+        -:  138:	DUCKDB_API ~SimpleFunction() override;
+        -:  139:
+        -:  140:	//! The set of arguments of the function
+        -:  141:	vector<LogicalType> arguments;
+        -:  142:	//! The set of original arguments of the function - only set if Function::EraseArgument is called
+        -:  143:	//! Used for (de)serialization purposes
+        -:  144:	vector<LogicalType> original_arguments;
+        -:  145:	//! The type of varargs to support, or LogicalTypeId::INVALID if the function does not accept variable length
+        -:  146:	//! arguments
+        -:  147:	LogicalType varargs;
+        -:  148:
+        -:  149:public:
+        -:  150:	DUCKDB_API virtual string ToString() const;
+        -:  151:
+        -:  152:	DUCKDB_API bool HasVarArgs() const;
+        -:  153:};
+        -:  154:
+        -:  155:class SimpleNamedParameterFunction : public SimpleFunction {
+        -:  156:public:
+        -:  157:	DUCKDB_API SimpleNamedParameterFunction(string name, vector<LogicalType> arguments,
+        -:  158:	                                        LogicalType varargs = LogicalType(LogicalTypeId::INVALID));
+        -:  159:	DUCKDB_API ~SimpleNamedParameterFunction() override;
+        -:  160:
+        -:  161:	//! The named parameters of the function
+        -:  162:	named_parameter_type_map_t named_parameters;
+        -:  163:
+        -:  164:public:
+        -:  165:	DUCKDB_API string ToString() const override;
+        -:  166:	DUCKDB_API bool HasNamedParameters() const;
+        -:  167:};
+        -:  168:
+        -:  169:class BaseScalarFunction : public SimpleFunction {
+        -:  170:public:
+        -:  171:	DUCKDB_API BaseScalarFunction(string name, vector<LogicalType> arguments, LogicalType return_type,
+        -:  172:	                              FunctionStability stability,
+        -:  173:	                              LogicalType varargs = LogicalType(LogicalTypeId::INVALID),
+        -:  174:	                              FunctionNullHandling null_handling = FunctionNullHandling::DEFAULT_NULL_HANDLING,
+        -:  175:	                              FunctionErrors errors = FunctionErrors::CANNOT_ERROR);
+        -:  176:	DUCKDB_API ~BaseScalarFunction() override;
+        -:  177:
+        -:  178:public:
+        -:  179:	void SetReturnType(LogicalType return_type_p) {
+        -:  180:		return_type = std::move(return_type_p);
+        -:  181:	}
+        -:  182:	const LogicalType &GetReturnType() const {
+        -:  183:		return return_type;
+        -:  184:	}
+        -:  185:	LogicalType &GetReturnType() {
+        -:  186:		return return_type;
+        -:  187:	}
+        -:  188:
+        -:  189:	FunctionStability GetStability() const {
+        -:  190:		return stability;
+        -:  191:	}
+       20:  192:	void SetStability(FunctionStability stability_p) {
+       20:  193:		stability = stability_p;
+       20:  194:	}
+        -:  195:
+        -:  196:	FunctionNullHandling GetNullHandling() const {
+        -:  197:		return null_handling;
+        -:  198:	}
+        -:  199:	void SetNullHandling(FunctionNullHandling null_handling_p) {
+        -:  200:		null_handling = null_handling_p;
+        -:  201:	}
+        -:  202:
+        -:  203:	FunctionErrors GetErrorMode() const {
+        -:  204:		return errors;
+        -:  205:	}
+        -:  206:	void SetErrorMode(FunctionErrors errors_p) {
+        -:  207:		errors = errors_p;
+        -:  208:	}
+        -:  209:
+        -:  210:	//! Set this functions error-mode as fallible (can throw runtime errors)
+        -:  211:	void SetFallible() {
+        -:  212:		errors = FunctionErrors::CAN_THROW_RUNTIME_ERROR;
+        -:  213:	}
+        -:  214:	//! Set this functions stability as volatile (can not be cached per row)
+        -:  215:	void SetVolatile() {
+        -:  216:		stability = FunctionStability::VOLATILE;
+        -:  217:	}
+        -:  218:
+        -:  219:	void SetCollationHandling(FunctionCollationHandling collation_handling_p) {
+        -:  220:		collation_handling = collation_handling_p;
+        -:  221:	}
+        -:  222:	FunctionCollationHandling GetCollationHandling() const {
+        -:  223:		return collation_handling;
+        -:  224:	}
+        -:  225:
+        -:  226:public:
+        -:  227:	//! Return type of the function
+        -:  228:	LogicalType return_type;
+        -:  229:	//! The stability of the function (see FunctionStability enum for more info)
+        -:  230:	FunctionStability stability;
+        -:  231:	//! How this function handles NULL values
+        -:  232:	FunctionNullHandling null_handling;
+        -:  233:	//! Whether or not this function can throw an error
+        -:  234:	FunctionErrors errors;
+        -:  235:	//! Collation handling of the function
+        -:  236:	FunctionCollationHandling collation_handling;
+        -:  237:
+        -:  238:	static BaseScalarFunction SetReturnsError(BaseScalarFunction &function) {
+        -:  239:		function.errors = FunctionErrors::CAN_THROW_RUNTIME_ERROR;
+        -:  240:		return function;
+        -:  241:	}
+        -:  242:
+        -:  243:public:
+        -:  244:	DUCKDB_API hash_t Hash() const;
+        -:  245:
+        -:  246:	DUCKDB_API string ToString() const override;
+        -:  247:};
+        -:  248:
+        -:  249:} // namespace duckdb

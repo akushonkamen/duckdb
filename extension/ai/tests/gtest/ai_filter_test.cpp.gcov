@@ -1,0 +1,242 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/extension/ai/tests/gtest/ai_filter_test.cpp
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// ai_filter_test.cpp - Google Test unit tests for AI Filter
+        -:    5://   Tests retry logic, error handling, and edge cases using mocks
+        -:    6://===----------------------------------------------------------------------===//
+        -:    7:
+        -:    8:#include <gtest/gtest.h>
+        -:    9:#include <gmock/gmock.h>
+        -:   10:#include "ai_function_executor.hpp"
+        -:   11:#include "http_client_interface.hpp"
+        -:   12:#include "mock/mock_interfaces.hpp"
+        -:   13:
+        -:   14:using ::testing::_;
+        -:   15:using ::testing::Return;
+        -:   16:using ::testing::AtLeast;
+        -:   17:
+        -:   18:using namespace duckdb;
+        -:   19:
+        -:   20:// ============================================================================
+        -:   21:// Test Fixture
+        -:   22:// ============================================================================
+        -:   23:
+        -:   24:class AIFilterTest : public ::testing::Test {
+        -:   25:protected:
+        9:   26:	void SetUp() override {
+        9:   27:		mock_http = std::make_unique<mock::MockHTTPClient>();
+        9:   28:		mock_clock = std::make_unique<mock::MockSystemClock>();
+        9:   29:		mock_random = std::make_unique<mock::MockRandomGenerator>();
+        9:   30:	}
+        -:   31:
+        9:   32:	std::unique_ptr<AIFunctionExecutor> CreateExecutor() {
+        9:   33:		return std::make_unique<AIFunctionExecutor>(
+        9:   34:			std::move(mock_http),
+        9:   35:			std::move(mock_clock),
+        9:   36:			std::move(mock_random)
+        -:   37:		);
+        -:   38:	}
+        -:   39:
+        -:   40:	std::unique_ptr<mock::MockHTTPClient> mock_http;
+        -:   41:	std::unique_ptr<mock::MockSystemClock> mock_clock;
+        -:   42:	std::unique_ptr<mock::MockRandomGenerator> mock_random;
+        -:   43:};
+        -:   44:
+        -:   45:// ============================================================================
+        -:   46:// Success Path Tests
+        -:   47:// ============================================================================
+        -:   48:
+        7:   49:TEST_F(AIFilterTest, SuccessfulAPIResponse) {
+        -:   50:	// Arrange
+        2:   51:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:   52:		.WillOnce(Return(IHTTPClient::Response{0, "{\"choices\":[{\"message\":{\"content\":\"0.85\"}}]}"}));
+        -:   53:
+        1:   54:	auto executor = CreateExecutor();
+        -:   55:
+        -:   56:	// Act
+        1:   57:	auto result = executor->CallAPIWithRetry("base64_image", "cat", "clip");
+        -:   58:
+        -:   59:	// Assert
+        1:   60:	EXPECT_EQ(result, "{\"choices\":[{\"message\":{\"content\":\"0.85\"}}]}");
+        1:   61:}
+        -:   62:
+        7:   63:TEST_F(AIFilterTest, SuccessfulAPIResponseWithDifferentScore) {
+        -:   64:	// Arrange
+        2:   65:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:   66:		.WillOnce(Return(IHTTPClient::Response{0, "{\"choices\":[{\"message\":{\"content\":\"0.92\"}}]}"}));
+        -:   67:
+        1:   68:	auto executor = CreateExecutor();
+        -:   69:
+        -:   70:	// Act
+        1:   71:	auto result = executor->CallAPIWithRetry("base64_image", "dog", "clip");
+        -:   72:
+        -:   73:	// Assert
+        1:   74:	EXPECT_NE(result.find("0.92"), std::string::npos);
+        1:   75:}
+        -:   76:
+        -:   77:// ============================================================================
+        -:   78:// Retry Logic Tests
+        -:   79:// ============================================================================
+        -:   80:
+        7:   81:TEST_F(AIFilterTest, RetryOnceThenSuccess) {
+        -:   82:	// Arrange
+        1:   83:	testing::Sequence s;
+        2:   84:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:   85:		.InSequence(s)
+        1:   86:		.WillOnce(Return(IHTTPClient::Response{1, "{\"error\":\"timeout\"}"}));
+        1:   87:	EXPECT_CALL(*mock_clock, SleepMs(100));  // BASE_DELAY_MS
+        2:   88:		EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:   89:		.InSequence(s)
+        1:   90:		.WillOnce(Return(IHTTPClient::Response{0, "{\"choices\":[{\"message\":{\"content\":\"0.75\"}}]}"}));
+        -:   91:
+        1:   92:	auto executor = CreateExecutor();
+        -:   93:
+        -:   94:	// Act
+        1:   95:	auto result = executor->CallAPIWithRetry("base64_image", "cat", "clip");
+        -:   96:
+        -:   97:	// Assert
+        1:   98:	EXPECT_NE(result.find("0.75"), std::string::npos);
+        1:   99:}
+        -:  100:
+        7:  101:TEST_F(AIFilterTest, MaxRetriesExhausted) {
+        -:  102:	// Arrange - All 4 attempts fail
+        2:  103:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:  104:		.Times(4)
+        1:  105:		.WillRepeatedly(Return(IHTTPClient::Response{1, "{\"error\":\"timeout\"}"}));
+        -:  106:
+        1:  107:	EXPECT_CALL(*mock_clock, SleepMs(100));  // Attempt 1
+        1:  108:	EXPECT_CALL(*mock_clock, SleepMs(200));  // Attempt 2
+        1:  109:	EXPECT_CALL(*mock_clock, SleepMs(400));  // Attempt 3
+        -:  110:
+        1:  111:	auto executor = CreateExecutor();
+        -:  112:
+        -:  113:	// Act
+        1:  114:	auto result = executor->CallAPIWithRetry("base64_image", "cat", "clip");
+        -:  115:
+        -:  116:	// Assert - Should return error marker
+        1:  117:	EXPECT_NE(result.find("\"error\":\"max_retries_exceeded\""), std::string::npos);
+        1:  118:}
+        -:  119:
+        -:  120:// ============================================================================
+        -:  121:// Empty Response Tests (popen failure simulation)
+        -:  122:// ============================================================================
+        -:  123:
+        7:  124:TEST_F(AIFilterTest, EmptyResponseThenRetry) {
+        -:  125:	// Arrange
+        1:  126:	testing::Sequence s;
+        2:  127:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:  128:		.InSequence(s)
+        1:  129:		.WillOnce(Return(IHTTPClient::Response{-1, ""}));  // popen failure
+        1:  130:	EXPECT_CALL(*mock_clock, SleepMs(100));
+        2:  131:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:  132:		.InSequence(s)
+        1:  133:		.WillOnce(Return(IHTTPClient::Response{0, "{\"choices\":[{\"message\":{\"content\":\"0.70\"}}]}"}));
+        -:  134:
+        1:  135:	auto executor = CreateExecutor();
+        -:  136:
+        -:  137:	// Act
+        1:  138:	auto result = executor->CallAPIWithRetry("base64_image", "cat", "clip");
+        -:  139:
+        -:  140:	// Assert
+        1:  141:	EXPECT_NE(result.find("0.70"), std::string::npos);
+        1:  142:}
+        -:  143:
+        -:  144:// ============================================================================
+        -:  145:// Random Jitter Tests
+        -:  146:// ============================================================================
+        -:  147:
+        7:  148:TEST_F(AIFilterTest, RandomJitterInDelay) {
+        -:  149:	// Arrange - All 4 attempts (initial + 3 retries) fail
+        2:  150:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:  151:		.Times(4)
+        1:  152:		.WillRepeatedly(Return(IHTTPClient::Response{1, "{\"error\":\"timeout\"}"}));
+        -:  153:
+        -:  154:	// Exponential backoff with jitter: 100*2^attempt ± jitter%
+        -:  155:	// Retry 1: 100ms ± 20ms
+        2:  156:	EXPECT_CALL(*mock_random, GetRandomInt(-20, 20))
+        1:  157:		.WillOnce(Return(10));
+        1:  158:	EXPECT_CALL(*mock_clock, SleepMs(110));  // 100 + 10
+        -:  159:
+        -:  160:	// Retry 2: 200ms ± 40ms
+        2:  161:	EXPECT_CALL(*mock_random, GetRandomInt(-40, 40))
+        1:  162:		.WillOnce(Return(-20));
+        1:  163:	EXPECT_CALL(*mock_clock, SleepMs(180));  // 200 - 20
+        -:  164:
+        -:  165:	// Retry 3: 400ms ± 80ms
+        2:  166:	EXPECT_CALL(*mock_random, GetRandomInt(-80, 80))
+        1:  167:		.WillOnce(Return(50));
+        1:  168:	EXPECT_CALL(*mock_clock, SleepMs(450));  // 400 + 50
+        -:  169:
+        1:  170:	auto executor = CreateExecutor();
+        -:  171:
+        -:  172:	// Act
+        1:  173:	auto result = executor->CallAPIWithRetry("base64_image", "cat", "clip");
+        -:  174:
+        -:  175:	// Assert
+        1:  176:	EXPECT_NE(result.find("\"error\":\"max_retries_exceeded\""), std::string::npos);
+        1:  177:}
+        -:  178:
+        -:  179:// ============================================================================
+        -:  180:// Different Model Tests
+        -:  181:// ============================================================================
+        -:  182:
+        7:  183:TEST_F(AIFilterTest, DifferentModelNames) {
+        -:  184:	// Arrange
+        2:  185:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:  186:		.WillOnce(Return(IHTTPClient::Response{0, "{\"choices\":[{\"message\":{\"content\":\"0.88\"}}]}"}));
+        -:  187:
+        1:  188:	auto executor = CreateExecutor();
+        -:  189:
+        -:  190:	// Act
+        1:  191:	auto result = executor->CallAPIWithRetry("base64_image", "cat", "chatgpt-4o-latest");
+        -:  192:
+        -:  193:	// Assert
+        1:  194:	EXPECT_NE(result.find("0.88"), std::string::npos);
+        1:  195:}
+        -:  196:
+        -:  197:// ============================================================================
+        -:  198:// Edge Cases
+        -:  199:// ============================================================================
+        -:  200:
+        7:  201:TEST_F(AIFilterTest, EmptyImage) {
+        -:  202:	// Arrange
+        2:  203:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:  204:		.WillOnce(Return(IHTTPClient::Response{0, "{\"choices\":[{\"message\":{\"content\":\"0.50\"}}]}"}));
+        -:  205:
+        1:  206:	auto executor = CreateExecutor();
+        -:  207:
+        -:  208:	// Act
+        1:  209:	auto result = executor->CallAPIWithRetry("", "cat", "clip");
+        -:  210:
+        -:  211:	// Assert
+        1:  212:	EXPECT_FALSE(result.empty());
+        1:  213:}
+        -:  214:
+        7:  215:TEST_F(AIFilterTest, ResponseWithInvalidJSON) {
+        -:  216:	// Arrange
+        2:  217:	EXPECT_CALL(*mock_http, Post(_, _, _))
+        1:  218:		.WillOnce(Return(IHTTPClient::Response{0, "{\"data\":\"value with 0.75 inside\"}"}));
+        -:  219:
+        1:  220:	auto executor = CreateExecutor();
+        -:  221:
+        -:  222:	// Act
+        1:  223:	auto result = executor->CallAPIWithRetry("base64_image", "cat", "clip");
+        -:  224:
+        -:  225:	// Assert
+        1:  226:	EXPECT_FALSE(result.empty());
+        1:  227:	EXPECT_NE(result.find("0.75"), std::string::npos);
+        1:  228:}
+        -:  229:
+        -:  230:// ============================================================================
+        -:  231:// Main function
+        -:  232:// ============================================================================
+        -:  233:
+        1:  234:int main(int argc, char **argv) {
+        1:  235:	::testing::InitGoogleTest(&argc, argv);
+        1:  236:	return RUN_ALL_TESTS();
+        -:  237:}

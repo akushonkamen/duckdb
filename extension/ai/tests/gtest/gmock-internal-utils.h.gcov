@@ -1,0 +1,489 @@
+        -:    0:Source:/opt/homebrew/include/gmock/internal/gmock-internal-utils.h
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:// Copyright 2007, Google Inc.
+        -:    2:// All rights reserved.
+        -:    3://
+        -:    4:// Redistribution and use in source and binary forms, with or without
+        -:    5:// modification, are permitted provided that the following conditions are
+        -:    6:// met:
+        -:    7://
+        -:    8://     * Redistributions of source code must retain the above copyright
+        -:    9:// notice, this list of conditions and the following disclaimer.
+        -:   10://     * Redistributions in binary form must reproduce the above
+        -:   11:// copyright notice, this list of conditions and the following disclaimer
+        -:   12:// in the documentation and/or other materials provided with the
+        -:   13:// distribution.
+        -:   14://     * Neither the name of Google Inc. nor the names of its
+        -:   15:// contributors may be used to endorse or promote products derived from
+        -:   16:// this software without specific prior written permission.
+        -:   17://
+        -:   18:// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+        -:   19:// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+        -:   20:// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+        -:   21:// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+        -:   22:// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+        -:   23:// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+        -:   24:// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+        -:   25:// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+        -:   26:// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        -:   27:// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        -:   28:// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        -:   29:
+        -:   30:// Google Mock - a framework for writing C++ mock classes.
+        -:   31://
+        -:   32:// This file defines some utilities useful for implementing Google
+        -:   33:// Mock.  They are subject to change without notice, so please DO NOT
+        -:   34:// USE THEM IN USER CODE.
+        -:   35:
+        -:   36:// IWYU pragma: private, include "gmock/gmock.h"
+        -:   37:// IWYU pragma: friend gmock/.*
+        -:   38:
+        -:   39:#ifndef GOOGLEMOCK_INCLUDE_GMOCK_INTERNAL_GMOCK_INTERNAL_UTILS_H_
+        -:   40:#define GOOGLEMOCK_INCLUDE_GMOCK_INTERNAL_GMOCK_INTERNAL_UTILS_H_
+        -:   41:
+        -:   42:#include <stdio.h>
+        -:   43:
+        -:   44:#include <ostream>  // NOLINT
+        -:   45:#include <string>
+        -:   46:#include <type_traits>
+        -:   47:#include <utility>
+        -:   48:#include <vector>
+        -:   49:
+        -:   50:#include "gmock/internal/gmock-port.h"
+        -:   51:#include "gtest/gtest.h"
+        -:   52:
+        -:   53:namespace testing {
+        -:   54:
+        -:   55:template <typename>
+        -:   56:class Matcher;
+        -:   57:
+        -:   58:namespace internal {
+        -:   59:
+        -:   60:// Silence MSVC C4100 (unreferenced formal parameter) and
+        -:   61:// C4805('==': unsafe mix of type 'const int' and type 'const bool')
+        -:   62:GTEST_DISABLE_MSC_WARNINGS_PUSH_(4100 4805)
+        -:   63:
+        -:   64:// Joins a vector of strings as if they are fields of a tuple; returns
+        -:   65:// the joined string.
+        -:   66:GTEST_API_ std::string JoinAsKeyValueTuple(
+        -:   67:    const std::vector<const char*>& names, const Strings& values);
+        -:   68:
+        -:   69:// Converts an identifier name to a space-separated list of lower-case
+        -:   70:// words.  Each maximum substring of the form [A-Za-z][a-z]*|\d+ is
+        -:   71:// treated as one word.  For example, both "FooBar123" and
+        -:   72:// "foo_bar_123" are converted to "foo bar 123".
+        -:   73:GTEST_API_ std::string ConvertIdentifierNameToWords(const char* id_name);
+        -:   74:
+        -:   75:// GetRawPointer(p) returns the raw pointer underlying p when p is a
+        -:   76:// smart pointer, or returns p itself when p is already a raw pointer.
+        -:   77:// The following default implementation is for the smart pointer case.
+        -:   78:template <typename Pointer>
+        -:   79:inline const typename Pointer::element_type* GetRawPointer(const Pointer& p) {
+        -:   80:  return p.get();
+        -:   81:}
+        -:   82:// This overload version is for std::reference_wrapper, which does not work with
+        -:   83:// the overload above, as it does not have an `element_type`.
+        -:   84:template <typename Element>
+        -:   85:inline const Element* GetRawPointer(const std::reference_wrapper<Element>& r) {
+        -:   86:  return &r.get();
+        -:   87:}
+        -:   88:
+        -:   89:// This overloaded version is for the raw pointer case.
+        -:   90:template <typename Element>
+        -:   91:inline Element* GetRawPointer(Element* p) {
+        -:   92:  return p;
+        -:   93:}
+        -:   94:
+        -:   95:// Default definitions for all compilers.
+        -:   96:// NOTE: If you implement support for other compilers, make sure to avoid
+        -:   97:// unexpected overlaps.
+        -:   98:// (e.g., Clang also processes #pragma GCC, and clang-cl also handles _MSC_VER.)
+        -:   99:#define GMOCK_INTERNAL_WARNING_PUSH()
+        -:  100:#define GMOCK_INTERNAL_WARNING_CLANG(Level, Name)
+        -:  101:#define GMOCK_INTERNAL_WARNING_POP()
+        -:  102:
+        -:  103:#if defined(__clang__)
+        -:  104:#undef GMOCK_INTERNAL_WARNING_PUSH
+        -:  105:#define GMOCK_INTERNAL_WARNING_PUSH() _Pragma("clang diagnostic push")
+        -:  106:#undef GMOCK_INTERNAL_WARNING_CLANG
+        -:  107:#define GMOCK_INTERNAL_WARNING_CLANG(Level, Warning) \
+        -:  108:  _Pragma(GMOCK_PP_INTERNAL_STRINGIZE(clang diagnostic Level Warning))
+        -:  109:#undef GMOCK_INTERNAL_WARNING_POP
+        -:  110:#define GMOCK_INTERNAL_WARNING_POP() _Pragma("clang diagnostic pop")
+        -:  111:#endif
+        -:  112:
+        -:  113:// MSVC treats wchar_t as a native type usually, but treats it as the
+        -:  114:// same as unsigned short when the compiler option /Zc:wchar_t- is
+        -:  115:// specified.  It defines _NATIVE_WCHAR_T_DEFINED symbol when wchar_t
+        -:  116:// is a native type.
+        -:  117:#if defined(_MSC_VER) && !defined(_NATIVE_WCHAR_T_DEFINED)
+        -:  118:// wchar_t is a typedef.
+        -:  119:#else
+        -:  120:#define GMOCK_WCHAR_T_IS_NATIVE_ 1
+        -:  121:#endif
+        -:  122:
+        -:  123:// In what follows, we use the term "kind" to indicate whether a type
+        -:  124:// is bool, an integer type (excluding bool), a floating-point type,
+        -:  125:// or none of them.  This categorization is useful for determining
+        -:  126:// when a matcher argument type can be safely converted to another
+        -:  127:// type in the implementation of SafeMatcherCast.
+        -:  128:enum TypeKind { kBool, kInteger, kFloatingPoint, kOther };
+        -:  129:
+        -:  130:// KindOf<T>::value is the kind of type T.
+        -:  131:template <typename T>
+        -:  132:struct KindOf {
+        -:  133:  enum { value = kOther };  // The default kind.
+        -:  134:};
+        -:  135:
+        -:  136:// This macro declares that the kind of 'type' is 'kind'.
+        -:  137:#define GMOCK_DECLARE_KIND_(type, kind) \
+        -:  138:  template <>                           \
+        -:  139:  struct KindOf<type> {                 \
+        -:  140:    enum { value = kind };              \
+        -:  141:  }
+        -:  142:
+        -:  143:GMOCK_DECLARE_KIND_(bool, kBool);
+        -:  144:
+        -:  145:// All standard integer types.
+        -:  146:GMOCK_DECLARE_KIND_(char, kInteger);
+        -:  147:GMOCK_DECLARE_KIND_(signed char, kInteger);
+        -:  148:GMOCK_DECLARE_KIND_(unsigned char, kInteger);
+        -:  149:GMOCK_DECLARE_KIND_(short, kInteger);           // NOLINT
+        -:  150:GMOCK_DECLARE_KIND_(unsigned short, kInteger);  // NOLINT
+        -:  151:GMOCK_DECLARE_KIND_(int, kInteger);
+        -:  152:GMOCK_DECLARE_KIND_(unsigned int, kInteger);
+        -:  153:GMOCK_DECLARE_KIND_(long, kInteger);                // NOLINT
+        -:  154:GMOCK_DECLARE_KIND_(unsigned long, kInteger);       // NOLINT
+        -:  155:GMOCK_DECLARE_KIND_(long long, kInteger);           // NOLINT
+        -:  156:GMOCK_DECLARE_KIND_(unsigned long long, kInteger);  // NOLINT
+        -:  157:
+        -:  158:#if GMOCK_WCHAR_T_IS_NATIVE_
+        -:  159:GMOCK_DECLARE_KIND_(wchar_t, kInteger);
+        -:  160:#endif
+        -:  161:
+        -:  162:// All standard floating-point types.
+        -:  163:GMOCK_DECLARE_KIND_(float, kFloatingPoint);
+        -:  164:GMOCK_DECLARE_KIND_(double, kFloatingPoint);
+        -:  165:GMOCK_DECLARE_KIND_(long double, kFloatingPoint);
+        -:  166:
+        -:  167:#undef GMOCK_DECLARE_KIND_
+        -:  168:
+        -:  169:// Evaluates to the kind of 'type'.
+        -:  170:#define GMOCK_KIND_OF_(type)                   \
+        -:  171:  static_cast< ::testing::internal::TypeKind>( \
+        -:  172:      ::testing::internal::KindOf<type>::value)
+        -:  173:
+        -:  174:// LosslessArithmeticConvertibleImpl<kFromKind, From, kToKind, To>::value
+        -:  175:// is true if and only if arithmetic type From can be losslessly converted to
+        -:  176:// arithmetic type To.
+        -:  177://
+        -:  178:// It's the user's responsibility to ensure that both From and To are
+        -:  179:// raw (i.e. has no CV modifier, is not a pointer, and is not a
+        -:  180:// reference) built-in arithmetic types, kFromKind is the kind of
+        -:  181:// From, and kToKind is the kind of To; the value is
+        -:  182:// implementation-defined when the above pre-condition is violated.
+        -:  183:template <TypeKind kFromKind, typename From, TypeKind kToKind, typename To>
+        -:  184:using LosslessArithmeticConvertibleImpl = std::integral_constant<
+        -:  185:    bool,
+        -:  186:    // clang-format off
+        -:  187:      // Converting from bool is always lossless
+        -:  188:      (kFromKind == kBool) ? true
+        -:  189:      // Converting between any other type kinds will be lossy if the type
+        -:  190:      // kinds are not the same.
+        -:  191:    : (kFromKind != kToKind) ? false
+        -:  192:    : (kFromKind == kInteger &&
+        -:  193:       // Converting between integers of different widths is allowed so long
+        -:  194:       // as the conversion does not go from signed to unsigned.
+        -:  195:      (((sizeof(From) < sizeof(To)) &&
+        -:  196:        !(std::is_signed<From>::value && !std::is_signed<To>::value)) ||
+        -:  197:       // Converting between integers of the same width only requires the
+        -:  198:       // two types to have the same signedness.
+        -:  199:       ((sizeof(From) == sizeof(To)) &&
+        -:  200:        (std::is_signed<From>::value == std::is_signed<To>::value)))
+        -:  201:       ) ? true
+        -:  202:      // Floating point conversions are lossless if and only if `To` is at least
+        -:  203:      // as wide as `From`.
+        -:  204:    : (kFromKind == kFloatingPoint && (sizeof(From) <= sizeof(To))) ? true
+        -:  205:    : false
+        -:  206:    // clang-format on
+        -:  207:    >;
+        -:  208:
+        -:  209:// LosslessArithmeticConvertible<From, To>::value is true if and only if
+        -:  210:// arithmetic type From can be losslessly converted to arithmetic type To.
+        -:  211://
+        -:  212:// It's the user's responsibility to ensure that both From and To are
+        -:  213:// raw (i.e. has no CV modifier, is not a pointer, and is not a
+        -:  214:// reference) built-in arithmetic types; the value is
+        -:  215:// implementation-defined when the above pre-condition is violated.
+        -:  216:template <typename From, typename To>
+        -:  217:using LosslessArithmeticConvertible =
+        -:  218:    LosslessArithmeticConvertibleImpl<GMOCK_KIND_OF_(From), From,
+        -:  219:                                      GMOCK_KIND_OF_(To), To>;
+        -:  220:
+        -:  221:// This interface knows how to report a Google Mock failure (either
+        -:  222:// non-fatal or fatal).
+        -:  223:class FailureReporterInterface {
+        -:  224: public:
+        -:  225:  // The type of a failure (either non-fatal or fatal).
+        -:  226:  enum FailureType { kNonfatal, kFatal };
+        -:  227:
+        -:  228:  virtual ~FailureReporterInterface() = default;
+        -:  229:
+        -:  230:  // Reports a failure that occurred at the given source file location.
+        -:  231:  virtual void ReportFailure(FailureType type, const char* file, int line,
+        -:  232:                             const std::string& message) = 0;
+        -:  233:};
+        -:  234:
+        -:  235:// Returns the failure reporter used by Google Mock.
+        -:  236:GTEST_API_ FailureReporterInterface* GetFailureReporter();
+        -:  237:
+        -:  238:// Asserts that condition is true; aborts the process with the given
+        -:  239:// message if condition is false.  We cannot use LOG(FATAL) or CHECK()
+        -:  240:// as Google Mock might be used to mock the log sink itself.  We
+        -:  241:// inline this function to prevent it from showing up in the stack
+        -:  242:// trace.
+       28:  243:inline void Assert(bool condition, const char* file, int line,
+        -:  244:                   const std::string& msg) {
+       28:  245:  if (!condition) {
+    #####:  246:    GetFailureReporter()->ReportFailure(FailureReporterInterface::kFatal, file,
+    #####:  247:                                        line, msg);
+    #####:  248:  }
+       28:  249:}
+        -:  250:inline void Assert(bool condition, const char* file, int line) {
+        -:  251:  Assert(condition, file, line, "Assertion failed.");
+        -:  252:}
+        -:  253:
+        -:  254:// Verifies that condition is true; generates a non-fatal failure if
+        -:  255:// condition is false.
+       18:  256:inline void Expect(bool condition, const char* file, int line,
+        -:  257:                   const std::string& msg) {
+       18:  258:  if (!condition) {
+    #####:  259:    GetFailureReporter()->ReportFailure(FailureReporterInterface::kNonfatal,
+    #####:  260:                                        file, line, msg);
+    #####:  261:  }
+       18:  262:}
+        -:  263:inline void Expect(bool condition, const char* file, int line) {
+        -:  264:  Expect(condition, file, line, "Expectation failed.");
+        -:  265:}
+        -:  266:
+        -:  267:// Severity level of a log.
+        -:  268:enum LogSeverity { kInfo = 0, kWarning = 1 };
+        -:  269:
+        -:  270:// Valid values for the --gmock_verbose flag.
+        -:  271:
+        -:  272:// All logs (informational and warnings) are printed.
+        -:  273:const char kInfoVerbosity[] = "info";
+        -:  274:// Only warnings are printed.
+        -:  275:const char kWarningVerbosity[] = "warning";
+        -:  276:// No logs are printed.
+        -:  277:const char kErrorVerbosity[] = "error";
+        -:  278:
+        -:  279:// Returns true if and only if a log with the given severity is visible
+        -:  280:// according to the --gmock_verbose flag.
+        -:  281:GTEST_API_ bool LogIsVisible(LogSeverity severity);
+        -:  282:
+        -:  283:// Prints the given message to stdout if and only if 'severity' >= the level
+        -:  284:// specified by the --gmock_verbose flag.  If stack_frames_to_skip >=
+        -:  285:// 0, also prints the stack trace excluding the top
+        -:  286:// stack_frames_to_skip frames.  In opt mode, any positive
+        -:  287:// stack_frames_to_skip is treated as 0, since we don't know which
+        -:  288:// function calls will be inlined by the compiler and need to be
+        -:  289:// conservative.
+        -:  290:GTEST_API_ void Log(LogSeverity severity, const std::string& message,
+        -:  291:                    int stack_frames_to_skip);
+        -:  292:
+        -:  293:// A marker class that is used to resolve parameterless expectations to the
+        -:  294:// correct overload. This must not be instantiable, to prevent client code from
+        -:  295:// accidentally resolving to the overload; for example:
+        -:  296://
+        -:  297://    ON_CALL(mock, Method({}, nullptr))...
+        -:  298://
+        -:  299:class WithoutMatchers {
+        -:  300: private:
+        -:  301:  WithoutMatchers() {}
+        -:  302:  friend GTEST_API_ WithoutMatchers GetWithoutMatchers();
+        -:  303:};
+        -:  304:
+        -:  305:// Internal use only: access the singleton instance of WithoutMatchers.
+        -:  306:GTEST_API_ WithoutMatchers GetWithoutMatchers();
+        -:  307:
+        -:  308:// Invalid<T>() is usable as an expression of type T, but will terminate
+        -:  309:// the program with an assertion failure if actually run.  This is useful
+        -:  310:// when a value of type T is needed for compilation, but the statement
+        -:  311:// will not really be executed (or we don't care if the statement
+        -:  312:// crashes).
+        -:  313:template <typename T>
+        -:  314:inline T Invalid() {
+        -:  315:  Assert(/*condition=*/false, /*file=*/"", /*line=*/-1,
+        -:  316:         "Internal error: attempt to return invalid value");
+        -:  317:#if defined(__GNUC__) || defined(__clang__)
+        -:  318:  __builtin_unreachable();
+        -:  319:#elif defined(_MSC_VER)
+        -:  320:  __assume(0);
+        -:  321:#else
+        -:  322:  return Invalid<T>();
+        -:  323:#endif
+        -:  324:}
+        -:  325:
+        -:  326:// Given a raw type (i.e. having no top-level reference or const
+        -:  327:// modifier) RawContainer that's either an STL-style container or a
+        -:  328:// native array, class StlContainerView<RawContainer> has the
+        -:  329:// following members:
+        -:  330://
+        -:  331://   - type is a type that provides an STL-style container view to
+        -:  332://     (i.e. implements the STL container concept for) RawContainer;
+        -:  333://   - const_reference is a type that provides a reference to a const
+        -:  334://     RawContainer;
+        -:  335://   - ConstReference(raw_container) returns a const reference to an STL-style
+        -:  336://     container view to raw_container, which is a RawContainer.
+        -:  337://   - Copy(raw_container) returns an STL-style container view of a
+        -:  338://     copy of raw_container, which is a RawContainer.
+        -:  339://
+        -:  340:// This generic version is used when RawContainer itself is already an
+        -:  341:// STL-style container.
+        -:  342:template <class RawContainer>
+        -:  343:class StlContainerView {
+        -:  344: public:
+        -:  345:  typedef RawContainer type;
+        -:  346:  typedef const type& const_reference;
+        -:  347:
+        -:  348:  static const_reference ConstReference(const RawContainer& container) {
+        -:  349:    static_assert(!std::is_const<RawContainer>::value,
+        -:  350:                  "RawContainer type must not be const");
+        -:  351:    return container;
+        -:  352:  }
+        -:  353:  static type Copy(const RawContainer& container) { return container; }
+        -:  354:};
+        -:  355:
+        -:  356:// This specialization is used when RawContainer is a native array type.
+        -:  357:template <typename Element, size_t N>
+        -:  358:class StlContainerView<Element[N]> {
+        -:  359: public:
+        -:  360:  typedef typename std::remove_const<Element>::type RawElement;
+        -:  361:  typedef internal::NativeArray<RawElement> type;
+        -:  362:  // NativeArray<T> can represent a native array either by value or by
+        -:  363:  // reference (selected by a constructor argument), so 'const type'
+        -:  364:  // can be used to reference a const native array.  We cannot
+        -:  365:  // 'typedef const type& const_reference' here, as that would mean
+        -:  366:  // ConstReference() has to return a reference to a local variable.
+        -:  367:  typedef const type const_reference;
+        -:  368:
+        -:  369:  static const_reference ConstReference(const Element (&array)[N]) {
+        -:  370:    static_assert(std::is_same<Element, RawElement>::value,
+        -:  371:                  "Element type must not be const");
+        -:  372:    return type(array, N, RelationToSourceReference());
+        -:  373:  }
+        -:  374:  static type Copy(const Element (&array)[N]) {
+        -:  375:    return type(array, N, RelationToSourceCopy());
+        -:  376:  }
+        -:  377:};
+        -:  378:
+        -:  379:// This specialization is used when RawContainer is a native array
+        -:  380:// represented as a (pointer, size) tuple.
+        -:  381:template <typename ElementPointer, typename Size>
+        -:  382:class StlContainerView< ::std::tuple<ElementPointer, Size> > {
+        -:  383: public:
+        -:  384:  typedef typename std::remove_const<
+        -:  385:      typename std::pointer_traits<ElementPointer>::element_type>::type
+        -:  386:      RawElement;
+        -:  387:  typedef internal::NativeArray<RawElement> type;
+        -:  388:  typedef const type const_reference;
+        -:  389:
+        -:  390:  static const_reference ConstReference(
+        -:  391:      const ::std::tuple<ElementPointer, Size>& array) {
+        -:  392:    return type(std::get<0>(array), std::get<1>(array),
+        -:  393:                RelationToSourceReference());
+        -:  394:  }
+        -:  395:  static type Copy(const ::std::tuple<ElementPointer, Size>& array) {
+        -:  396:    return type(std::get<0>(array), std::get<1>(array), RelationToSourceCopy());
+        -:  397:  }
+        -:  398:};
+        -:  399:
+        -:  400:// The following specialization prevents the user from instantiating
+        -:  401:// StlContainer with a reference type.
+        -:  402:template <typename T>
+        -:  403:class StlContainerView<T&>;
+        -:  404:
+        -:  405:// A type transform to remove constness from the first part of a pair.
+        -:  406:// Pairs like that are used as the value_type of associative containers,
+        -:  407:// and this transform produces a similar but assignable pair.
+        -:  408:template <typename T>
+        -:  409:struct RemoveConstFromKey {
+        -:  410:  typedef T type;
+        -:  411:};
+        -:  412:
+        -:  413:// Partially specialized to remove constness from std::pair<const K, V>.
+        -:  414:template <typename K, typename V>
+        -:  415:struct RemoveConstFromKey<std::pair<const K, V> > {
+        -:  416:  typedef std::pair<K, V> type;
+        -:  417:};
+        -:  418:
+        -:  419:// Emit an assertion failure due to incorrect DoDefault() usage. Out-of-lined to
+        -:  420:// reduce code size.
+        -:  421:GTEST_API_ void IllegalDoDefault(const char* file, int line);
+        -:  422:
+        -:  423:template <typename F, typename Tuple, size_t... Idx>
+       20:  424:auto ApplyImpl(F&& f, Tuple&& args, std::index_sequence<Idx...>)
+        -:  425:    -> decltype(std::forward<F>(f)(
+        -:  426:        std::get<Idx>(std::forward<Tuple>(args))...)) {
+       20:  427:  return std::forward<F>(f)(std::get<Idx>(std::forward<Tuple>(args))...);
+        -:  428:}
+        -:  429:
+        -:  430:// Apply the function to a tuple of arguments.
+        -:  431:template <typename F, typename Tuple>
+       20:  432:auto Apply(F&& f, Tuple&& args)
+        -:  433:    -> decltype(ApplyImpl(
+        -:  434:        std::forward<F>(f), std::forward<Tuple>(args),
+        -:  435:        std::make_index_sequence<std::tuple_size<
+        -:  436:            typename std::remove_reference<Tuple>::type>::value>())) {
+       20:  437:  return ApplyImpl(std::forward<F>(f), std::forward<Tuple>(args),
+        -:  438:                   std::make_index_sequence<std::tuple_size<
+        -:  439:                       typename std::remove_reference<Tuple>::type>::value>());
+        -:  440:}
+        -:  441:
+        -:  442:// Template struct Function<F>, where F must be a function type, contains
+        -:  443:// the following typedefs:
+        -:  444://
+        -:  445://   Result:               the function's return type.
+        -:  446://   Arg<N>:               the type of the N-th argument, where N starts with 0.
+        -:  447://   ArgumentTuple:        the tuple type consisting of all parameters of F.
+        -:  448://   ArgumentMatcherTuple: the tuple type consisting of Matchers for all
+        -:  449://                         parameters of F.
+        -:  450://   MakeResultVoid:       the function type obtained by substituting void
+        -:  451://                         for the return type of F.
+        -:  452://   MakeResultIgnoredValue:
+        -:  453://                         the function type obtained by substituting Something
+        -:  454://                         for the return type of F.
+        -:  455:template <typename T>
+        -:  456:struct Function;
+        -:  457:
+        -:  458:template <typename R, typename... Args>
+        -:  459:struct Function<R(Args...)> {
+        -:  460:  using Result = R;
+        -:  461:  static constexpr size_t ArgumentCount = sizeof...(Args);
+        -:  462:  template <size_t I>
+        -:  463:  using Arg = ElemFromList<I, Args...>;
+        -:  464:  using ArgumentTuple = std::tuple<Args...>;
+        -:  465:  using ArgumentMatcherTuple = std::tuple<Matcher<Args>...>;
+        -:  466:  using MakeResultVoid = void(Args...);
+        -:  467:  using MakeResultIgnoredValue = IgnoredValue(Args...);
+        -:  468:};
+        -:  469:
+        -:  470:// Workaround for MSVC error C2039: 'type': is not a member of 'std'
+        -:  471:// when std::tuple_element is used.
+        -:  472:// See: https://github.com/google/googletest/issues/3931
+        -:  473:// Can be replaced with std::tuple_element_t in C++14.
+        -:  474:template <size_t I, typename T>
+        -:  475:using TupleElement = typename std::tuple_element<I, T>::type;
+        -:  476:
+        -:  477:bool Base64Unescape(const std::string& encoded, std::string* decoded);
+        -:  478:
+        -:  479:GTEST_DISABLE_MSC_WARNINGS_POP_()  // 4100 4805
+        -:  480:
+        -:  481:}  // namespace internal
+        -:  482:}  // namespace testing
+        -:  483:
+        -:  484:#endif  // GOOGLEMOCK_INCLUDE_GMOCK_INTERNAL_GMOCK_INTERNAL_UTILS_H_

@@ -1,0 +1,262 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/src/include/duckdb/common/types/string_type.hpp
+        -:    0:Graph:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// duckdb/common/types/string_type.hpp
+        -:    5://
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#pragma once
+        -:   10:
+        -:   11:#include "duckdb/common/assert.hpp"
+        -:   12:#include "duckdb/common/bswap.hpp"
+        -:   13:#include "duckdb/common/constants.hpp"
+        -:   14:#include "duckdb/common/helper.hpp"
+        -:   15:#include "duckdb/common/numeric_utils.hpp"
+        -:   16:#include "duckdb/common/limits.hpp"
+        -:   17:#include "duckdb/common/types/hash.hpp"
+        -:   18:
+        -:   19:#include <cstring>
+        -:   20:#include <algorithm>
+        -:   21:
+        -:   22:namespace duckdb {
+        -:   23:
+        -:   24:struct string_t {
+        -:   25:	friend struct StringComparisonOperators;
+        -:   26:
+        -:   27:public:
+        -:   28:	static constexpr idx_t PREFIX_BYTES = 4 * sizeof(char);
+        -:   29:	static constexpr idx_t INLINE_BYTES = 12 * sizeof(char);
+        -:   30:	static constexpr idx_t HEADER_SIZE = sizeof(uint32_t) + PREFIX_BYTES;
+        -:   31:	static constexpr idx_t MAX_STRING_SIZE = NumericLimits<uint32_t>::Maximum();
+        -:   32:#ifndef DUCKDB_DEBUG_NO_INLINE
+        -:   33:	static constexpr idx_t PREFIX_LENGTH = PREFIX_BYTES;
+        -:   34:	static constexpr idx_t INLINE_LENGTH = INLINE_BYTES;
+        -:   35:#else
+        -:   36:	static constexpr idx_t PREFIX_LENGTH = 0;
+        -:   37:	static constexpr idx_t INLINE_LENGTH = 0;
+        -:   38:#endif
+        -:   39:
+        -:   40:	string_t() = default;
+        -:   41:	explicit string_t(uint32_t len) {
+        -:   42:		value.inlined.length = len;
+        -:   43:	}
+        -:   44:	string_t(const char *data, uint32_t len) {
+        -:   45:		value.inlined.length = len;
+        -:   46:		D_ASSERT(data || GetSize() == 0);
+        -:   47:		if (IsInlined()) {
+        -:   48:			// zero initialize the prefix first
+        -:   49:			// this makes sure that strings with length smaller than 4 still have an equal prefix
+        -:   50:			memset(value.inlined.inlined, 0, INLINE_BYTES);
+        -:   51:			if (GetSize() == 0) {
+        -:   52:				return;
+        -:   53:			}
+        -:   54:			// small string: inlined
+        -:   55:			memcpy(value.inlined.inlined, data, GetSize());
+        -:   56:		} else {
+        -:   57:			// large string: store pointer
+        -:   58:#ifndef DUCKDB_DEBUG_NO_INLINE
+        -:   59:			memcpy(value.pointer.prefix, data, PREFIX_LENGTH);
+        -:   60:#else
+        -:   61:			memset(value.pointer.prefix, 0, PREFIX_BYTES);
+        -:   62:#endif
+        -:   63:			value.pointer.ptr = (char *)data; // NOLINT
+        -:   64:		}
+        -:   65:	}
+        -:   66:
+        -:   67:	string_t(const char *data) // NOLINT: Allow implicit conversion from `const char*`
+        -:   68:	    : string_t(data, UnsafeNumericCast<uint32_t>(strlen(data))) {
+        -:   69:	}
+        -:   70:	string_t(const string &value) // NOLINT: Allow implicit conversion from `const char*`
+        -:   71:	    : string_t(value.c_str(), UnsafeNumericCast<uint32_t>(value.size())) {
+        -:   72:	}
+        -:   73:
+       30:   74:	bool IsInlined() const {
+       30:   75:		return GetSize() <= INLINE_LENGTH;
+        -:   76:	}
+        -:   77:
+       30:   78:	const char *GetData() const {
+       30:   79:		return IsInlined() ? const_char_ptr_cast(value.inlined.inlined) : value.pointer.ptr;
+        -:   80:	}
+        -:   81:	const char *GetDataUnsafe() const {
+        -:   82:		return GetData();
+        -:   83:	}
+        -:   84:
+        -:   85:	char *GetDataWriteable() const {
+        -:   86:		return IsInlined() ? (char *)value.inlined.inlined : value.pointer.ptr; // NOLINT
+        -:   87:	}
+        -:   88:
+        -:   89:	const char *GetPrefix() const {
+        -:   90:		return value.inlined.inlined;
+        -:   91:	}
+        -:   92:
+        -:   93:	char *GetPrefixWriteable() {
+        -:   94:		return value.inlined.inlined;
+        -:   95:	}
+        -:   96:
+       60:   97:	idx_t GetSize() const {
+       60:   98:		return value.inlined.length;
+        -:   99:	}
+        -:  100:
+        -:  101:	void SetSizeAndFinalize(uint32_t size, idx_t allocated_size) {
+        -:  102:		value.inlined.length = size;
+        -:  103:		if (allocated_size > INLINE_LENGTH && IsInlined()) {
+        -:  104:			//! Data was written to the 'value.pointer.ptr', has to be copied to the inlined bytes
+        -:  105:			D_ASSERT(value.pointer.ptr);
+        -:  106:			auto ptr = value.pointer.ptr;
+        -:  107:			memcpy(GetDataWriteable(), ptr, size);
+        -:  108:		}
+        -:  109:		Finalize();
+        -:  110:		VerifyCharacters();
+        -:  111:	}
+        -:  112:
+        -:  113:	bool Empty() const {
+        -:  114:		return value.inlined.length == 0;
+        -:  115:	}
+        -:  116:
+       30:  117:	string GetString() const {
+       30:  118:		return string(GetData(), GetSize());
+        -:  119:	}
+        -:  120:
+        -:  121:	explicit operator string() const {
+        -:  122:		return GetString();
+        -:  123:	}
+        -:  124:
+        -:  125:	char *GetPointer() const {
+        -:  126:		D_ASSERT(!IsInlined());
+        -:  127:		return value.pointer.ptr;
+        -:  128:	}
+        -:  129:
+        -:  130:	void SetPointer(char *new_ptr) {
+        -:  131:		D_ASSERT(!IsInlined());
+        -:  132:		value.pointer.ptr = new_ptr;
+        -:  133:	}
+        -:  134:
+        -:  135:	void Finalize() {
+        -:  136:		// set trailing NULL byte
+        -:  137:		if (GetSize() <= INLINE_LENGTH) {
+        -:  138:			// fill prefix with zeros if the length is smaller than the prefix length
+        -:  139:			memset(value.inlined.inlined + GetSize(), 0, INLINE_BYTES - GetSize());
+        -:  140:		} else {
+        -:  141:			// copy the data into the prefix
+        -:  142:#ifndef DUCKDB_DEBUG_NO_INLINE
+        -:  143:			auto dataptr = GetData();
+        -:  144:			memcpy(value.pointer.prefix, dataptr, PREFIX_LENGTH);
+        -:  145:#else
+        -:  146:			memset(value.pointer.prefix, 0, PREFIX_BYTES);
+        -:  147:#endif
+        -:  148:		}
+        -:  149:	}
+        -:  150:
+        -:  151:	void Verify() const;
+        -:  152:	void VerifyUTF8() const;
+        -:  153:	void VerifyCharacters() const;
+        -:  154:	void VerifyNull() const;
+        -:  155:
+        -:  156:	struct StringComparisonOperators {
+        -:  157:		static inline bool Equals(const string_t &a, const string_t &b) {
+        -:  158:#ifdef DUCKDB_DEBUG_NO_INLINE
+        -:  159:			if (a.GetSize() != b.GetSize()) {
+        -:  160:				return false;
+        -:  161:			}
+        -:  162:			return (memcmp(a.GetData(), b.GetData(), a.GetSize()) == 0);
+        -:  163:#endif
+        -:  164:			uint64_t a_bulk_comp = Load<uint64_t>(const_data_ptr_cast(&a));
+        -:  165:			uint64_t b_bulk_comp = Load<uint64_t>(const_data_ptr_cast(&b));
+        -:  166:			if (a_bulk_comp != b_bulk_comp) {
+        -:  167:				// Either length or prefix are different -> not equal
+        -:  168:				return false;
+        -:  169:			}
+        -:  170:			// they have the same length and same prefix!
+        -:  171:			a_bulk_comp = Load<uint64_t>(const_data_ptr_cast(&a) + 8u);
+        -:  172:			b_bulk_comp = Load<uint64_t>(const_data_ptr_cast(&b) + 8u);
+        -:  173:			if (a_bulk_comp == b_bulk_comp) {
+        -:  174:				// either they are both inlined (so compare equal) or point to the same string (so compare equal)
+        -:  175:				return true;
+        -:  176:			}
+        -:  177:			if (!a.IsInlined()) {
+        -:  178:				// 'long' strings of the same length -> compare pointed value
+        -:  179:				if (memcmp(a.value.pointer.ptr, b.value.pointer.ptr, a.GetSize()) == 0) {
+        -:  180:					return true;
+        -:  181:				}
+        -:  182:			}
+        -:  183:			// either they are short string of same length but different content
+        -:  184:			//     or they point to string with different content
+        -:  185:			//     either way, they can't represent the same underlying string
+        -:  186:			return false;
+        -:  187:		}
+        -:  188:		// compare up to shared length. if still the same, compare lengths
+        -:  189:		static bool GreaterThan(const string_t &left, const string_t &right) {
+        -:  190:			const uint32_t left_length = UnsafeNumericCast<uint32_t>(left.GetSize());
+        -:  191:			const uint32_t right_length = UnsafeNumericCast<uint32_t>(right.GetSize());
+        -:  192:			const uint32_t min_length = std::min<uint32_t>(left_length, right_length);
+        -:  193:
+        -:  194:#ifndef DUCKDB_DEBUG_NO_INLINE
+        -:  195:			uint32_t a_prefix = Load<uint32_t>(const_data_ptr_cast(left.GetPrefix()));
+        -:  196:			uint32_t b_prefix = Load<uint32_t>(const_data_ptr_cast(right.GetPrefix()));
+        -:  197:
+        -:  198:			// Check on prefix -----
+        -:  199:			// We don't need to mask since:
+        -:  200:			//	if the prefix is greater(after bswap), it will stay greater regardless of the extra bytes
+        -:  201:			// 	if the prefix is smaller(after bswap), it will stay smaller regardless of the extra bytes
+        -:  202:			//	if the prefix is equal, the extra bytes are guaranteed to be /0 for the shorter one
+        -:  203:
+        -:  204:			if (a_prefix != b_prefix) {
+        -:  205:				return BSwapIfLE(a_prefix) > BSwapIfLE(b_prefix);
+        -:  206:			}
+        -:  207:#endif
+        -:  208:			auto memcmp_res = memcmp(left.GetData(), right.GetData(), min_length);
+        -:  209:			return memcmp_res > 0 || (memcmp_res == 0 && left_length > right_length);
+        -:  210:		}
+        -:  211:	};
+        -:  212:
+        -:  213:	bool operator==(const string_t &r) const {
+        -:  214:		return StringComparisonOperators::Equals(*this, r);
+        -:  215:	}
+        -:  216:
+        -:  217:	bool operator!=(const string_t &r) const {
+        -:  218:		return !(*this == r);
+        -:  219:	}
+        -:  220:
+        -:  221:	bool operator>(const string_t &r) const {
+        -:  222:		return StringComparisonOperators::GreaterThan(*this, r);
+        -:  223:	}
+        -:  224:	bool operator<(const string_t &r) const {
+        -:  225:		return r > *this;
+        -:  226:	}
+        -:  227:	bool operator<=(const string_t &r) const {
+        -:  228:		return !(r < *this);
+        -:  229:	}
+        -:  230:	bool operator>=(const string_t &r) const {
+        -:  231:		return !(*this < r);
+        -:  232:	}
+        -:  233:
+        -:  234:private:
+        -:  235:	union {
+        -:  236:		struct {
+        -:  237:			uint32_t length;
+        -:  238:			char prefix[4];
+        -:  239:			char *ptr;
+        -:  240:		} pointer;
+        -:  241:		struct {
+        -:  242:			uint32_t length;
+        -:  243:			char inlined[12];
+        -:  244:		} inlined;
+        -:  245:	} value;
+        -:  246:};
+        -:  247:
+        -:  248:} // namespace duckdb
+        -:  249:
+        -:  250:namespace std {
+        -:  251:template <>
+        -:  252:struct hash<duckdb::string_t> {
+        -:  253:	size_t operator()(const duckdb::string_t &val) const {
+        -:  254:		return Hash(val);
+        -:  255:	}
+        -:  256:};
+        -:  257:} // namespace std

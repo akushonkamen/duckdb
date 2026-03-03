@@ -310,6 +310,126 @@ static double make_single_request(const std::string &image, const std::string &p
 }
 
 /**
+ * Cosine Similarity Calculation for ai_similarity
+ */
+static double cosine_similarity(const float *left, const float *right, idx_t size) {
+    if (size == 0) {
+        return 0.0; // Empty vectors have 0 similarity
+    }
+
+    double dot_product = 0.0;
+    double norm_left = 0.0;
+    double norm_right = 0.0;
+
+    for (idx_t i = 0; i < size; i++) {
+        dot_product += static_cast<double>(left[i]) * static_cast<double>(right[i]);
+        norm_left += static_cast<double>(left[i]) * static_cast<double>(left[i]);
+        norm_right += static_cast<double>(right[i]) * static_cast<double>(right[i]);
+    }
+
+    // Avoid division by zero
+    double denominator = sqrt(norm_left) * sqrt(norm_right);
+    if (denominator < 1e-10) {
+        return 0.0; // Both vectors are zero vectors
+    }
+
+    return dot_product / denominator;
+}
+
+/**
+ * ai_similarity function
+ * Computes cosine similarity between two vectors
+ * SQL: ai_similarity(vec1 FLOAT[], vec2 FLOAT[], model VARCHAR) -> DOUBLE
+ */
+static void ai_similarity_function(DataChunk &args, ExpressionState &state, Vector &result) {
+    auto &left_vec = args.data[0]; // FLOAT[]
+    auto &right_vec = args.data[1]; // FLOAT[]
+    auto &model_vec = args.data[2]; // VARCHAR (unused, for logging only)
+
+    // Get list entry types
+    D_ASSERT(left_vec.GetType().id() == LogicalTypeId::LIST);
+    D_ASSERT(right_vec.GetType().id() == LogicalTypeId::LIST);
+
+    auto &left_list_type = ListType::GetChildType(left_vec.GetType());
+    auto &right_list_type = ListType::GetChildType(right_vec.GetType());
+
+    D_ASSERT(left_list_type == LogicalType::FLOAT);
+    D_ASSERT(right_list_type == LogicalType::FLOAT);
+
+    // Get references to child vectors
+    auto &left_child = ListVector::GetEntry(left_vec);
+    auto &right_child = ListVector::GetEntry(right_vec);
+
+    UnifiedVectorFormat left_vec_format;
+    UnifiedVectorFormat right_vec_format;
+    UnifiedVectorFormat left_child_format;
+    UnifiedVectorFormat right_child_format;
+
+    left_vec.ToUnifiedFormat(args.size(), left_vec_format);
+    right_vec.ToUnifiedFormat(args.size(), right_vec_format);
+    left_child.ToUnifiedFormat(args.size(), left_child_format);
+    right_child.ToUnifiedFormat(args.size(), right_child_format);
+
+    // Get list offsets
+    auto left_list_entries = ListVector::GetData(left_vec);
+    auto right_list_entries = ListVector::GetData(right_vec);
+
+    // Initialize result vector
+    result.SetVectorType(VectorType::FLAT_VECTOR);
+    auto result_data = FlatVector::GetData<double>(result);
+    auto &result_validity = FlatVector::Validity(result);
+
+    // Process each row
+    for (idx_t i = 0; i < args.size(); i++) {
+        idx_t left_idx = left_vec_format.sel->get_index(i);
+        idx_t right_idx = right_vec_format.sel->get_index(i);
+
+        // Check for NULL inputs
+        if (!left_vec_format.validity.RowIsValid(left_idx) ||
+            !right_vec_format.validity.RowIsValid(right_idx)) {
+            result_validity.SetInvalid(i);
+            continue;
+        }
+
+        // Get list entries
+        auto &left_entry = left_list_entries[left_idx];
+        auto &right_entry = right_list_entries[right_idx];
+
+        // Check for NULL list entries
+        if (left_entry.length == 0 || right_entry.length == 0) {
+            result_validity.SetInvalid(i);
+            continue;
+        }
+
+        // Validate vector dimensions
+        if (left_entry.length != right_entry.length) {
+            throw InvalidInputException(
+                "ai_similarity: Vector dimension mismatch - left vector has %u dimensions, right vector has %u dimensions. "
+                "Both vectors must have the same dimension for cosine similarity calculation.",
+                left_entry.length, right_entry.length);
+        }
+
+        // Get pointer to list data
+        auto left_data = reinterpret_cast<const float *>(left_child_format.data) + left_entry.offset;
+        auto right_data = reinterpret_cast<const float *>(right_child_format.data) + right_entry.offset;
+
+        // Calculate cosine similarity
+        double similarity = cosine_similarity(left_data, right_data, left_entry.length);
+
+        // Clamp to [0, 1] range
+        if (similarity < 0.0) {
+            similarity = 0.0;
+        } else if (similarity > 1.0) {
+            similarity = 1.0;
+        }
+
+        result_data[i] = similarity;
+    }
+
+    result.Verify(args.size());
+}
+
+/**
  * Batch processing function
  * NOTE: Due to std::thread instability in DuckDB extension environment,
  * this implementation uses sequential processing with optimized single popen calls.
@@ -343,6 +463,16 @@ DUCKDB_CPP_EXTENSION_ENTRY(ai, loader) {
     );
     ai_filter_batch_func.SetStability(FunctionStability::VOLATILE);
     loader.RegisterFunction(ai_filter_batch_func);
+
+    // Register ai_similarity function for vector similarity (TASK-K-001)
+    ScalarFunction ai_similarity_func(
+        "ai_similarity",
+        {LogicalType::LIST(LogicalType::FLOAT), LogicalType::LIST(LogicalType::FLOAT), LogicalType::VARCHAR},
+        LogicalType::DOUBLE,
+        &ai_similarity_function
+    );
+    ai_similarity_func.SetStability(FunctionStability::CONSISTENT); // Deterministic calculation
+    loader.RegisterFunction(ai_similarity_func);
 }
 
 }

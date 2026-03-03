@@ -37,20 +37,6 @@ static constexpr char DEFAULT_MODEL[] = "chatgpt-4o-latest";
 static constexpr double DEFAULT_DEGRADATION_SCORE = 0.5;
 
 // ============================================================================
-// Global Executor (for backward compatibility)
-// ============================================================================
-
-static std::unique_ptr<AIFunctionExecutor> g_global_executor;
-static std::once_flag g_executor_init_flag;
-
-static AIFunctionExecutor& GetGlobalExecutor() {
-	std::call_once(g_executor_init_flag, []() {
-		g_global_executor = std::make_unique<AIFunctionExecutor>();
-	});
-	return *g_global_executor;
-}
-
-// ============================================================================
 // Legacy static functions (backward compatibility)
 // ============================================================================
 
@@ -289,6 +275,7 @@ ScalarFunction AIFunctions::GetAIFilterBatchFunction() {
 void AIFunctions::RegisterScalarFunctions(ExtensionLoader &loader) {
 	loader.RegisterFunction(GetAIFilterFunction());
 	loader.RegisterFunction(GetAIFilterBatchFunction());
+	loader.RegisterFunction(GetAISimilarityFunction());
 }
 
 } // namespace duckdb

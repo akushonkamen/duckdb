@@ -1,0 +1,213 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/src/include/duckdb/common/vector_operations/ternary_executor.hpp
+        -:    0:Graph:../../build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:../../build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// duckdb/common/vector_operations/ternary_executor.hpp
+        -:    5://
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#pragma once
+        -:   10:
+        -:   11:#include "duckdb/common/exception.hpp"
+        -:   12:#include "duckdb/common/types/vector.hpp"
+        -:   13:#include "duckdb/common/vector_operations/vector_operations.hpp"
+        -:   14:
+        -:   15:#include <functional>
+        -:   16:
+        -:   17:namespace duckdb {
+        -:   18:
+        -:   19:template <class OP>
+        -:   20:struct TernaryStandardOperatorWrapper {
+        -:   21:	template <class FUN, class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE>
+        -:   22:	static inline RESULT_TYPE Operation(FUN fun, A_TYPE a, B_TYPE b, C_TYPE c, ValidityMask &mask, idx_t idx) {
+        -:   23:		return OP::template Operation<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE>(a, b, c);
+        -:   24:	}
+        -:   25:};
+        -:   26:
+        -:   27:struct TernaryLambdaWrapper {
+        -:   28:	template <class FUN, class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE>
+       15:   29:	static inline RESULT_TYPE Operation(FUN fun, A_TYPE a, B_TYPE b, C_TYPE c, ValidityMask &mask, idx_t idx) {
+       15:   30:		return fun(a, b, c);
+        -:   31:	}
+        -:   32:};
+        -:   33:
+        -:   34:struct TernaryLambdaWrapperWithNulls {
+        -:   35:	template <class FUN, class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE>
+        -:   36:	static inline RESULT_TYPE Operation(FUN fun, A_TYPE a, B_TYPE b, C_TYPE c, ValidityMask &mask, idx_t idx) {
+        -:   37:		return fun(a, b, c, mask, idx);
+        -:   38:	}
+        -:   39:};
+        -:   40:
+        -:   41:struct TernaryExecutor {
+        -:   42:private:
+        -:   43:	template <class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE, class OPWRAPPER, class FUN>
+    #####:   44:	static inline void ExecuteLoop(const A_TYPE *__restrict adata, const B_TYPE *__restrict bdata,
+        -:   45:	                               const C_TYPE *__restrict cdata, RESULT_TYPE *__restrict result_data, idx_t count,
+        -:   46:	                               const SelectionVector &asel, const SelectionVector &bsel,
+        -:   47:	                               const SelectionVector &csel, ValidityMask &avalidity, ValidityMask &bvalidity,
+        -:   48:	                               ValidityMask &cvalidity, ValidityMask &result_validity, FUN fun) {
+    #####:   49:		if (!avalidity.AllValid() || !bvalidity.AllValid() || !cvalidity.AllValid()) {
+    #####:   50:			for (idx_t i = 0; i < count; i++) {
+    #####:   51:				auto aidx = asel.get_index(i);
+    #####:   52:				auto bidx = bsel.get_index(i);
+    #####:   53:				auto cidx = csel.get_index(i);
+    #####:   54:				if (avalidity.RowIsValid(aidx) && bvalidity.RowIsValid(bidx) && cvalidity.RowIsValid(cidx)) {
+    #####:   55:					result_data[i] = OPWRAPPER::template Operation<FUN, A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE>(
+    #####:   56:					    fun, adata[aidx], bdata[bidx], cdata[cidx], result_validity, i);
+    #####:   57:				} else {
+    #####:   58:					result_validity.SetInvalid(i);
+        -:   59:				}
+    #####:   60:			}
+    #####:   61:		} else {
+    #####:   62:			for (idx_t i = 0; i < count; i++) {
+    #####:   63:				auto aidx = asel.get_index(i);
+    #####:   64:				auto bidx = bsel.get_index(i);
+    #####:   65:				auto cidx = csel.get_index(i);
+    #####:   66:				result_data[i] = OPWRAPPER::template Operation<FUN, A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE>(
+    #####:   67:				    fun, adata[aidx], bdata[bidx], cdata[cidx], result_validity, i);
+    #####:   68:			}
+        -:   69:		}
+    #####:   70:	}
+        -:   71:
+        -:   72:public:
+        -:   73:	template <class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE, class OPWRAPPER, class FUN>
+       15:   74:	static void ExecuteGeneric(Vector &a, Vector &b, Vector &c, Vector &result, idx_t count, FUN fun) {
+       15:   75:		if (a.GetVectorType() == VectorType::CONSTANT_VECTOR && b.GetVectorType() == VectorType::CONSTANT_VECTOR &&
+       15:   76:		    c.GetVectorType() == VectorType::CONSTANT_VECTOR) {
+       15:   77:			result.SetVectorType(VectorType::CONSTANT_VECTOR);
+       15:   78:			if (ConstantVector::IsNull(a) || ConstantVector::IsNull(b) || ConstantVector::IsNull(c)) {
+    #####:   79:				ConstantVector::SetNull(result, true);
+    #####:   80:			} else {
+       15:   81:				auto adata = ConstantVector::GetData<A_TYPE>(a);
+       15:   82:				auto bdata = ConstantVector::GetData<B_TYPE>(b);
+       15:   83:				auto cdata = ConstantVector::GetData<C_TYPE>(c);
+       15:   84:				auto result_data = ConstantVector::GetData<RESULT_TYPE>(result);
+       15:   85:				auto &result_validity = ConstantVector::Validity(result);
+       15:   86:				result_data[0] = OPWRAPPER::template Operation<FUN, A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE>(
+       15:   87:				    fun, adata[0], bdata[0], cdata[0], result_validity, 0);
+        -:   88:			}
+       15:   89:		} else {
+    #####:   90:			result.SetVectorType(VectorType::FLAT_VECTOR);
+        -:   91:
+    #####:   92:			UnifiedVectorFormat adata, bdata, cdata;
+    #####:   93:			a.ToUnifiedFormat(count, adata);
+    #####:   94:			b.ToUnifiedFormat(count, bdata);
+    #####:   95:			c.ToUnifiedFormat(count, cdata);
+        -:   96:
+    #####:   97:			ExecuteLoop<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, OPWRAPPER>(
+    #####:   98:			    UnifiedVectorFormat::GetData<A_TYPE>(adata), UnifiedVectorFormat::GetData<B_TYPE>(bdata),
+    #####:   99:			    UnifiedVectorFormat::GetData<C_TYPE>(cdata), FlatVector::GetData<RESULT_TYPE>(result), count,
+    #####:  100:			    *adata.sel, *bdata.sel, *cdata.sel, adata.validity, bdata.validity, cdata.validity,
+    #####:  101:			    FlatVector::Validity(result), fun);
+    #####:  102:		}
+       15:  103:	}
+        -:  104:
+        -:  105:	template <class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE,
+        -:  106:	          class FUN = std::function<RESULT_TYPE(A_TYPE, B_TYPE, C_TYPE)>>
+       15:  107:	static void Execute(Vector &a, Vector &b, Vector &c, Vector &result, idx_t count, FUN fun) {
+       15:  108:		ExecuteGeneric<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, TernaryLambdaWrapper, FUN>(a, b, c, result, count, fun);
+       15:  109:	}
+        -:  110:
+        -:  111:	template <class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE, class OP>
+        -:  112:	static void ExecuteStandard(Vector &a, Vector &b, Vector &c, Vector &result, idx_t count) {
+        -:  113:		ExecuteGeneric<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, TernaryStandardOperatorWrapper<OP>, bool>(a, b, c, result,
+        -:  114:		                                                                                              count, false);
+        -:  115:	}
+        -:  116:
+        -:  117:	template <class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE,
+        -:  118:	          class FUN = std::function<RESULT_TYPE(A_TYPE, B_TYPE, C_TYPE, ValidityMask &, idx_t)>>
+        -:  119:	static void ExecuteWithNulls(Vector &a, Vector &b, Vector &c, Vector &result, idx_t count, FUN fun) {
+        -:  120:		ExecuteGeneric<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, TernaryLambdaWrapperWithNulls, FUN>(a, b, c, result, count,
+        -:  121:		                                                                                        fun);
+        -:  122:	}
+        -:  123:
+        -:  124:private:
+        -:  125:	template <class A_TYPE, class B_TYPE, class C_TYPE, class OP, bool NO_NULL, bool HAS_TRUE_SEL, bool HAS_FALSE_SEL>
+        -:  126:	static inline idx_t SelectLoop(const A_TYPE *__restrict adata, const B_TYPE *__restrict bdata,
+        -:  127:	                               const C_TYPE *__restrict cdata, const SelectionVector *result_sel, idx_t count,
+        -:  128:	                               const SelectionVector &asel, const SelectionVector &bsel,
+        -:  129:	                               const SelectionVector &csel, ValidityMask &avalidity, ValidityMask &bvalidity,
+        -:  130:	                               ValidityMask &cvalidity, SelectionVector *true_sel, SelectionVector *false_sel) {
+        -:  131:		idx_t true_count = 0, false_count = 0;
+        -:  132:		for (idx_t i = 0; i < count; i++) {
+        -:  133:			auto result_idx = result_sel->get_index(i);
+        -:  134:			auto aidx = asel.get_index(i);
+        -:  135:			auto bidx = bsel.get_index(i);
+        -:  136:			auto cidx = csel.get_index(i);
+        -:  137:			bool comparison_result =
+        -:  138:			    (NO_NULL || (avalidity.RowIsValid(aidx) && bvalidity.RowIsValid(bidx) && cvalidity.RowIsValid(cidx))) &&
+        -:  139:			    OP::Operation(adata[aidx], bdata[bidx], cdata[cidx]);
+        -:  140:			if (HAS_TRUE_SEL) {
+        -:  141:				true_sel->set_index(true_count, result_idx);
+        -:  142:				true_count += comparison_result;
+        -:  143:			}
+        -:  144:			if (HAS_FALSE_SEL) {
+        -:  145:				false_sel->set_index(false_count, result_idx);
+        -:  146:				false_count += !comparison_result;
+        -:  147:			}
+        -:  148:		}
+        -:  149:		if (HAS_TRUE_SEL) {
+        -:  150:			return true_count;
+        -:  151:		} else {
+        -:  152:			return count - false_count;
+        -:  153:		}
+        -:  154:	}
+        -:  155:
+        -:  156:	template <class A_TYPE, class B_TYPE, class C_TYPE, class OP, bool NO_NULL>
+        -:  157:	static inline idx_t SelectLoopSelSwitch(UnifiedVectorFormat &adata, UnifiedVectorFormat &bdata,
+        -:  158:	                                        UnifiedVectorFormat &cdata, const SelectionVector *sel, idx_t count,
+        -:  159:	                                        SelectionVector *true_sel, SelectionVector *false_sel) {
+        -:  160:		if (true_sel && false_sel) {
+        -:  161:			return SelectLoop<A_TYPE, B_TYPE, C_TYPE, OP, NO_NULL, true, true>(
+        -:  162:			    UnifiedVectorFormat::GetData<A_TYPE>(adata), UnifiedVectorFormat::GetData<B_TYPE>(bdata),
+        -:  163:			    UnifiedVectorFormat::GetData<C_TYPE>(cdata), sel, count, *adata.sel, *bdata.sel, *cdata.sel,
+        -:  164:			    adata.validity, bdata.validity, cdata.validity, true_sel, false_sel);
+        -:  165:		} else if (true_sel) {
+        -:  166:			return SelectLoop<A_TYPE, B_TYPE, C_TYPE, OP, NO_NULL, true, false>(
+        -:  167:			    UnifiedVectorFormat::GetData<A_TYPE>(adata), UnifiedVectorFormat::GetData<B_TYPE>(bdata),
+        -:  168:			    UnifiedVectorFormat::GetData<C_TYPE>(cdata), sel, count, *adata.sel, *bdata.sel, *cdata.sel,
+        -:  169:			    adata.validity, bdata.validity, cdata.validity, true_sel, false_sel);
+        -:  170:		} else {
+        -:  171:			D_ASSERT(false_sel);
+        -:  172:			return SelectLoop<A_TYPE, B_TYPE, C_TYPE, OP, NO_NULL, false, true>(
+        -:  173:			    UnifiedVectorFormat::GetData<A_TYPE>(adata), UnifiedVectorFormat::GetData<B_TYPE>(bdata),
+        -:  174:			    UnifiedVectorFormat::GetData<C_TYPE>(cdata), sel, count, *adata.sel, *bdata.sel, *cdata.sel,
+        -:  175:			    adata.validity, bdata.validity, cdata.validity, true_sel, false_sel);
+        -:  176:		}
+        -:  177:	}
+        -:  178:
+        -:  179:	template <class A_TYPE, class B_TYPE, class C_TYPE, class OP>
+        -:  180:	static inline idx_t SelectLoopSwitch(UnifiedVectorFormat &adata, UnifiedVectorFormat &bdata,
+        -:  181:	                                     UnifiedVectorFormat &cdata, const SelectionVector *sel, idx_t count,
+        -:  182:	                                     SelectionVector *true_sel, SelectionVector *false_sel) {
+        -:  183:		if (!adata.validity.AllValid() || !bdata.validity.AllValid() || !cdata.validity.AllValid()) {
+        -:  184:			return SelectLoopSelSwitch<A_TYPE, B_TYPE, C_TYPE, OP, false>(adata, bdata, cdata, sel, count, true_sel,
+        -:  185:			                                                              false_sel);
+        -:  186:		} else {
+        -:  187:			return SelectLoopSelSwitch<A_TYPE, B_TYPE, C_TYPE, OP, true>(adata, bdata, cdata, sel, count, true_sel,
+        -:  188:			                                                             false_sel);
+        -:  189:		}
+        -:  190:	}
+        -:  191:
+        -:  192:public:
+        -:  193:	template <class A_TYPE, class B_TYPE, class C_TYPE, class OP>
+        -:  194:	static idx_t Select(Vector &a, Vector &b, Vector &c, const SelectionVector *sel, idx_t count,
+        -:  195:	                    SelectionVector *true_sel, SelectionVector *false_sel) {
+        -:  196:		if (!sel) {
+        -:  197:			sel = FlatVector::IncrementalSelectionVector();
+        -:  198:		}
+        -:  199:		UnifiedVectorFormat adata, bdata, cdata;
+        -:  200:		a.ToUnifiedFormat(count, adata);
+        -:  201:		b.ToUnifiedFormat(count, bdata);
+        -:  202:		c.ToUnifiedFormat(count, cdata);
+        -:  203:
+        -:  204:		return SelectLoopSwitch<A_TYPE, B_TYPE, C_TYPE, OP>(adata, bdata, cdata, sel, count, true_sel, false_sel);
+        -:  205:	}
+        -:  206:};
+        -:  207:
+        -:  208:} // namespace duckdb

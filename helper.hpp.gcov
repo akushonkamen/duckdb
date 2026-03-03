@@ -1,0 +1,287 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/src/include/duckdb/common/helper.hpp
+        -:    0:Graph:build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// duckdb/common/helper.hpp
+        -:    5://
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#pragma once
+        -:   10:
+        -:   11:#include "duckdb/common/bswap.hpp"
+        -:   12:#include "duckdb/common/constants.hpp"
+        -:   13:#include "duckdb/common/shared_ptr.hpp"
+        -:   14:#include <string.h>
+        -:   15:#include <type_traits>
+        -:   16:
+        -:   17:#ifdef _MSC_VER
+        -:   18:#define suint64_t int64_t
+        -:   19:#endif
+        -:   20:
+        -:   21:#if defined(_WIN32) || defined(_WIN64)
+        -:   22:#define DUCKDB_WINDOWS
+        -:   23:#elif defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))
+        -:   24:#define DUCKDB_POSIX
+        -:   25:#endif
+        -:   26:
+        -:   27:namespace duckdb {
+        -:   28:
+        -:   29:// explicit fallthrough for switch_statementss
+        -:   30:#ifndef __has_cpp_attribute // For backwards compatibility
+        -:   31:#define __has_cpp_attribute(x) 0
+        -:   32:#endif
+        -:   33:#if __has_cpp_attribute(clang::fallthrough)
+        -:   34:#define DUCKDB_EXPLICIT_FALLTHROUGH [[clang::fallthrough]]
+        -:   35:#elif __has_cpp_attribute(gnu::fallthrough)
+        -:   36:#define DUCKDB_EXPLICIT_FALLTHROUGH [[gnu::fallthrough]]
+        -:   37:#else
+        -:   38:#define DUCKDB_EXPLICIT_FALLTHROUGH
+        -:   39:#endif
+        -:   40:
+        -:   41:template <class... T>
+        -:   42:struct AlwaysFalse {
+        -:   43:	static constexpr bool VALUE = false;
+        -:   44:};
+        -:   45:
+        -:   46:template<typename T>
+        -:   47:using reference = std::reference_wrapper<T>;
+        -:   48:
+        -:   49:template<class DATA_TYPE, bool SAFE = true>
+        -:   50:struct TemplatedUniqueIf
+        -:   51:{
+        -:   52:    typedef unique_ptr<DATA_TYPE, std::default_delete<DATA_TYPE>, SAFE> templated_unique_single_t;
+        -:   53:};
+        -:   54:
+        -:   55:template<class DATA_TYPE, size_t N>
+        -:   56:struct TemplatedUniqueIf<DATA_TYPE[N]>
+        -:   57:{
+        -:   58:    typedef void TemplatedUniqueArrayKnownBound; // NOLINT: mimic std style
+        -:   59:};
+        -:   60:
+        -:   61:template<class DATA_TYPE, class... ARGS>
+        -:   62:inline
+        -:   63:typename TemplatedUniqueIf<DATA_TYPE, true>::templated_unique_single_t
+        -:   64:make_uniq(ARGS&&... args) // NOLINT: mimic std style
+        -:   65:{
+        -:   66:    return unique_ptr<DATA_TYPE, std::default_delete<DATA_TYPE>, true>(new DATA_TYPE(std::forward<ARGS>(args)...));
+        -:   67:}
+        -:   68:
+        -:   69:template<class DATA_TYPE, class... ARGS>
+        -:   70:inline
+        -:   71:shared_ptr<DATA_TYPE>
+    #####:   72:make_shared_ptr(ARGS&&... args) // NOLINT: mimic std style
+        -:   73:{
+    #####:   74:	return shared_ptr<DATA_TYPE>(duckdb_base_std::make_shared<DATA_TYPE>(std::forward<ARGS>(args)...));
+    #####:   75:}
+        -:   76:
+        -:   77:template<class DATA_TYPE, class... ARGS>
+        -:   78:inline
+        -:   79:typename TemplatedUniqueIf<DATA_TYPE, false>::templated_unique_single_t
+        -:   80:make_unsafe_uniq(ARGS&&... args) // NOLINT: mimic std style
+        -:   81:{
+        -:   82:    return unique_ptr<DATA_TYPE, std::default_delete<DATA_TYPE>, false>(new DATA_TYPE(std::forward<ARGS>(args)...));
+        -:   83:}
+        -:   84:
+        -:   85:template<class DATA_TYPE>
+        -:   86:inline unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, true>
+        -:   87:make_uniq_array(size_t n) // NOLINT: mimic std style
+        -:   88:{
+        -:   89:	return unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, true>(new DATA_TYPE[n]());
+        -:   90:}
+        -:   91:
+        -:   92:template<class DATA_TYPE>
+        -:   93:inline unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, true>
+        -:   94:make_uniq_array_uninitialized(size_t n) // NOLINT: mimic std style
+        -:   95:{
+        -:   96:	return unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, true>(new DATA_TYPE[n]);
+        -:   97:}
+        -:   98:
+        -:   99:template<class DATA_TYPE>
+        -:  100:inline unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, false>
+        -:  101:make_unsafe_uniq_array(size_t n) // NOLINT: mimic std style
+        -:  102:{
+        -:  103:	return unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, false>(new DATA_TYPE[n]());
+        -:  104:}
+        -:  105:
+        -:  106:template<class DATA_TYPE>
+        -:  107:inline unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, false>
+    #####:  108:make_unsafe_uniq_array_uninitialized(size_t n) // NOLINT: mimic std style
+        -:  109:{
+    #####:  110:	return unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>, false>(new DATA_TYPE[n]);
+        -:  111:}
+        -:  112:
+        -:  113:template<class DATA_TYPE, class... ARGS>
+        -:  114:    typename TemplatedUniqueIf<DATA_TYPE>::TemplatedUniqueArrayKnownBound
+        -:  115:    make_uniq(ARGS&&...) = delete; // NOLINT: mimic std style
+        -:  116:
+        -:  117:
+        -:  118:template <typename S, typename T, typename... ARGS>
+        -:  119:unique_ptr<S> make_uniq_base(ARGS &&... args) { // NOLINT: mimic std style
+        -:  120:	return unique_ptr<S>(new T(std::forward<ARGS>(args)...));
+        -:  121:}
+        -:  122:
+        -:  123:#ifdef DUCKDB_ENABLE_DEPRECATED_API
+        -:  124:template <typename S, typename T, typename... Args>
+        -:  125:unique_ptr<S> make_unique_base(Args &&... args) {
+        -:  126:	return unique_ptr<S>(new T(std::forward<Args>(args)...));
+        -:  127:}
+        -:  128:#endif // DUCKDB_ENABLE_DEPRECATED_API
+        -:  129:
+        -:  130:template <typename SRC, typename TGT>
+        -:  131:unique_ptr<TGT> unique_ptr_cast(unique_ptr<SRC> src) { // NOLINT: mimic std style
+        -:  132:	return unique_ptr<TGT>(static_cast<TGT *>(src.release()));
+        -:  133:}
+        -:  134:
+        -:  135:template <typename SRC, typename TGT>
+        -:  136:shared_ptr<TGT> shared_ptr_cast(shared_ptr<SRC> src) { // NOLINT: mimic std style
+        -:  137:	return shared_ptr<TGT>(std::static_pointer_cast<TGT, SRC>(src.internal));
+        -:  138:}
+        -:  139:
+        -:  140:#ifdef DUCKDB_DEBUG_MOVE
+        -:  141:template<class T>
+        -:  142:typename std::remove_reference<T>::type&& move(T&& t) noexcept {
+        -:  143:	// the nonsensical sizeof check ensures this is never instantiated
+        -:  144:	static_assert(sizeof(T) == 0, "Use std::move instead of unqualified move or duckdb::move");
+        -:  145:}
+        -:  146:#endif
+        -:  147:
+        -:  148:template <class T, class... ARGS>
+        -:  149:static duckdb::unique_ptr<T> make_unique(ARGS&&... __args) { // NOLINT: mimic std style
+        -:  150:#ifndef DUCKDB_ENABLE_DEPRECATED_API
+        -:  151:	static_assert(sizeof(T) == 0, "Use make_uniq instead of make_unique!");
+        -:  152:#endif // DUCKDB_ENABLE_DEPRECATED_API
+        -:  153:	return unique_ptr<T>(new T(std::forward<ARGS>(__args)...));
+        -:  154:}
+        -:  155:
+        -:  156:template <class T, class... ARGS>
+        -:  157:static duckdb::shared_ptr<T> make_shared(ARGS&&... __args) { // NOLINT: mimic std style
+        -:  158:#ifndef DUCKDB_ENABLE_DEPRECATED_API
+        -:  159:	static_assert(sizeof(T) == 0, "Use make_shared_ptr instead of make_shared!");
+        -:  160:#endif // DUCKDB_ENABLE_DEPRECATED_API
+        -:  161:	return shared_ptr<T>(new T(std::forward<ARGS>(__args)...));
+        -:  162:}
+        -:  163:
+        -:  164:template <typename T>
+        -:  165:constexpr T MaxValue(T a, T b) {
+        -:  166:	return a > b ? a : b;
+        -:  167:}
+        -:  168:
+        -:  169:template <typename T>
+        -:  170:constexpr T MinValue(T a, T b) {
+        -:  171:	return a < b ? a : b;
+        -:  172:}
+        -:  173:
+        -:  174://! Like std::clamp (C++17), returns v if within bounds, else nearest bound
+        -:  175:template <typename T>
+        -:  176:constexpr T ClampValue(T v, T min, T max) {
+        -:  177:	return MinValue(MaxValue(v, min), max);
+        -:  178:}
+        -:  179:
+        -:  180:template <typename T>
+        -:  181:T AbsValue(T a) {
+        -:  182:	return a < 0 ? -a : a;
+        -:  183:}
+        -:  184:
+        -:  185://! Align value (ceiling) (not for pointer types)
+        -:  186:template<class T, T val=8, typename = typename std::enable_if<!std::is_pointer<T>::value>::type>
+        -:  187:static inline T AlignValue(T n) {
+        -:  188:	return ((n + (val - 1)) / val) * val;
+        -:  189:}
+        -:  190:
+        -:  191:template <class T>
+        -:  192:static T AlignValue(T n, T val) {
+        -:  193:	return ((n + (val - 1)) / val) * val;
+        -:  194:}
+        -:  195:
+        -:  196:template<uintptr_t alignment, class T>
+        -:  197:inline T *AlignPointer(T *addr) {
+        -:  198:	static_assert((alignment & (alignment - 1)) == 0, "'alignment' has to be a power of 2");
+        -:  199:	return reinterpret_cast<T *>((reinterpret_cast<uintptr_t>(addr) + alignment - 1) & ~(alignment - 1));
+        -:  200:}
+        -:  201:
+        -:  202:template<class T, T val=8>
+        -:  203:constexpr inline T AlignValueFloor(T n) {
+        -:  204:	return (n / val) * val;
+        -:  205:}
+        -:  206:
+        -:  207:template<class T, T val=8>
+        -:  208:static inline bool ValueIsAligned(T n) {
+        -:  209:	return (n % val) == 0;
+        -:  210:}
+        -:  211:
+        -:  212:template <typename T>
+        -:  213:T SignValue(T a) {
+        -:  214:	return a < 0 ? -1 : 1;
+        -:  215:}
+        -:  216:
+        -:  217:template <typename T>
+        -:  218:const T Load(const_data_ptr_t ptr) {
+        -:  219:	T ret;
+        -:  220:	memcpy(&ret, ptr, sizeof(ret)); // NOLINT
+        -:  221:	return ret;
+        -:  222:}
+        -:  223:
+        -:  224:template <typename T>
+        -:  225:const T LoadLE(const_data_ptr_t ptr) {
+        -:  226:	return BSwapIfBE(Load<T>(ptr));
+        -:  227:}
+        -:  228:
+        -:  229:template <typename T>
+        -:  230:void Store(const T &val, data_ptr_t ptr) {
+        -:  231:	memcpy(ptr, (void *)&val, sizeof(val)); // NOLINT
+        -:  232:}
+        -:  233:
+        -:  234://! This assigns a shared pointer, but ONLY assigns if "target" is not equal to "source"
+        -:  235://! If this is often the case, this manner of assignment is significantly faster (~20X faster)
+        -:  236://! Since it avoids the need of an atomic incref/decref at the cost of a single pointer comparison
+        -:  237://! Benchmark: https://gist.github.com/Mytherin/4db3faa8e233c4a9b874b21f62bb4b96
+        -:  238://! If the shared pointers are not the same, the penalty is very low (on the order of 1%~ slower)
+        -:  239://! This method should always be preferred if there is a (reasonable) chance that the pointers are the same
+        -:  240:template<class T>
+        -:  241:void AssignSharedPointer(shared_ptr<T> &target, const shared_ptr<T> &source) {
+        -:  242:	if (target.get() != source.get()) {
+        -:  243:		target = source;
+        -:  244:	}
+        -:  245:}
+        -:  246:
+        -:  247:template<typename T>
+        -:  248:using const_reference = std::reference_wrapper<const T>;
+        -:  249:
+        -:  250://! Returns whether or not two reference wrappers refer to the same object
+        -:  251:template<class T>
+        -:  252:bool RefersToSameObject(const reference<T> &a, const reference<T> &b) {
+        -:  253:	return &a.get() == &b.get();
+        -:  254:}
+        -:  255:
+        -:  256:template<class T>
+        -:  257:bool RefersToSameObject(const T &a, const T &b) {
+        -:  258:	return &a == &b;
+        -:  259:}
+        -:  260:
+        -:  261:template<class T, class SRC>
+        -:  262:void DynamicCastCheck(const SRC *source) {
+        -:  263:#ifndef __APPLE__
+        -:  264:	// Actual check is on the fact that dynamic_cast and reinterpret_cast are equivalent
+        -:  265:	D_ASSERT(reinterpret_cast<const T *>(source) == dynamic_cast<const T *>(source));
+        -:  266:#endif
+        -:  267:}
+        -:  268:
+        -:  269://! Used to increment counters that need to be exception-proof
+        -:  270:template<typename T>
+        -:  271:class PostIncrement {
+        -:  272:public:
+        -:  273:	explicit PostIncrement(T &t) : t(t) {
+        -:  274:	}
+        -:  275:	~PostIncrement() {
+        -:  276:		++t;
+        -:  277:	}
+        -:  278:private:
+        -:  279:	T &t;
+        -:  280:};
+        -:  281:
+        -:  282:} // namespace duckdb

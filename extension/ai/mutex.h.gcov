@@ -1,0 +1,58 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__mutex/mutex.h
+        -:    0:Graph:../../build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:../../build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://
+        -:    3:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    4:// See https://llvm.org/LICENSE.txt for license information.
+        -:    5:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#ifndef _LIBCPP___MUTEX_MUTEX_H
+        -:   10:#define _LIBCPP___MUTEX_MUTEX_H
+        -:   11:
+        -:   12:#include <__config>
+        -:   13:#include <__thread/support.h>
+        -:   14:#include <__type_traits/is_nothrow_constructible.h>
+        -:   15:
+        -:   16:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   17:#  pragma GCC system_header
+        -:   18:#endif
+        -:   19:
+        -:   20:#ifndef _LIBCPP_HAS_NO_THREADS
+        -:   21:
+        -:   22:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   23:
+        -:   24:class _LIBCPP_EXPORTED_FROM_ABI _LIBCPP_THREAD_SAFETY_ANNOTATION(capability("mutex")) mutex {
+        6:   25:  __libcpp_mutex_t __m_ = _LIBCPP_MUTEX_INITIALIZER;
+        -:   26:
+        -:   27:public:
+       18:   28:  _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR mutex() = default;
+        -:   29:
+        -:   30:  mutex(const mutex&)            = delete;
+        -:   31:  mutex& operator=(const mutex&) = delete;
+        -:   32:
+        -:   33:#  if defined(_LIBCPP_HAS_TRIVIAL_MUTEX_DESTRUCTION)
+        -:   34:  _LIBCPP_HIDE_FROM_ABI ~mutex() = default;
+        -:   35:#  else
+        -:   36:  ~mutex() _NOEXCEPT;
+        -:   37:#  endif
+        -:   38:
+        -:   39:  void lock() _LIBCPP_THREAD_SAFETY_ANNOTATION(acquire_capability());
+        -:   40:  bool try_lock() _NOEXCEPT _LIBCPP_THREAD_SAFETY_ANNOTATION(try_acquire_capability(true));
+        -:   41:  void unlock() _NOEXCEPT _LIBCPP_THREAD_SAFETY_ANNOTATION(release_capability());
+        -:   42:
+        -:   43:  typedef __libcpp_mutex_t* native_handle_type;
+        -:   44:  _LIBCPP_HIDE_FROM_ABI native_handle_type native_handle() { return &__m_; }
+        -:   45:};
+        -:   46:
+        -:   47:static_assert(is_nothrow_default_constructible<mutex>::value, "the default constructor for std::mutex must be nothrow");
+        -:   48:
+        -:   49:_LIBCPP_END_NAMESPACE_STD
+        -:   50:
+        -:   51:#endif // _LIBCPP_HAS_NO_THREADS
+        -:   52:
+        -:   53:#endif // _LIBCPP___MUTEX_MUTEX_H

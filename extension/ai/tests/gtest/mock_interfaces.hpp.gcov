@@ -1,0 +1,56 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/extension/ai/tests/gtest/mock/mock_interfaces.hpp
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// mock_interfaces.hpp - Mock classes for Google Mock testing
+        -:    5://   Provides mock implementations of IHTTPClient, ISystemClock, IRandomGenerator
+        -:    6://===----------------------------------------------------------------------===//
+        -:    7:
+        -:    8:#pragma once
+        -:    9:
+        -:   10:#include "http_client_interface.hpp"
+        -:   11:#include <gmock/gmock.h>
+        -:   12:#include <string>
+        -:   13:
+        -:   14:namespace duckdb {
+        -:   15:namespace mock {
+        -:   16:
+        -:   17:// ============================================================================
+        -:   18:// Mock HTTP Client
+        -:   19:// ============================================================================
+        -:   20:
+        9:   21:class MockHTTPClient : public IHTTPClient {
+        -:   22:public:
+       28:   23:	MOCK_METHOD(Response, Post,
+        -:   24:	            (const std::string& url, const std::string& body, int timeout_sec),
+        -:   25:	            (override));
+        -:   26:
+    #####:   27:	MOCK_METHOD(std::string, ExecuteCommand,
+        -:   28:	            (const std::string& command),
+        -:   29:	            (override));
+        -:   30:};
+        -:   31:
+        -:   32:// ============================================================================
+        -:   33:// Mock System Clock
+        -:   34:// ============================================================================
+        -:   35:
+        9:   36:class MockSystemClock : public ISystemClock {
+        -:   37:public:
+       16:   38:	MOCK_METHOD(void, SleepMs, (int milliseconds), (override));
+        -:   39:};
+        -:   40:
+        -:   41:// ============================================================================
+        -:   42:// Mock Random Generator
+        -:   43:// ============================================================================
+        -:   44:
+        9:   45:class MockRandomGenerator : public IRandomGenerator {
+        -:   46:public:
+       11:   47:	MOCK_METHOD(int, GetRandomInt, (int min, int max), (override));
+        -:   48:};
+        -:   49:
+        -:   50:} // namespace mock
+        -:   51:} // namespace duckdb

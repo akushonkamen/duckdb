@@ -1,0 +1,128 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/extension/ai/src/http_client.cpp
+        -:    0:Graph:build/ai_executor_gtest-http_client.gcno
+        -:    0:Data:build/ai_executor_gtest-http_client.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// http_client.cpp - Production implementation of HTTP client interfaces
+        -:    5://   Provides real HTTP/popen execution for AI Filter functions
+        -:    6://===----------------------------------------------------------------------===//
+        -:    7:
+        -:    8:#include "http_client_interface.hpp"
+        -:    9:#include <cstdio>
+        -:   10:#include <cstring>
+        -:   11:#include <sstream>
+        -:   12:#include <thread>
+        -:   13:#include <chrono>
+        -:   14:#include <cstdlib>
+        -:   15:#include <ctime>
+        -:   16:
+        -:   17:namespace duckdb {
+        -:   18:
+        -:   19:// ============================================================================
+        -:   20:// Real HTTP Client Implementation
+        -:   21:// ============================================================================
+        -:   22:
+        -:   23:class RealHTTPClient : public IHTTPClient {
+        -:   24:public:
+    #####:   25:	Response Post(const std::string& url,
+        -:   26:	             const std::string& body,
+        -:   27:	             int timeout_sec) override {
+        -:   28:		// Build curl command
+    #####:   29:		std::ostringstream cmd;
+    #####:   30:		cmd << "curl -s "
+    #####:   31:		    << "--connect-timeout " << timeout_sec << " "
+    #####:   32:		    << "--max-time " << (timeout_sec + 5) << " "
+    #####:   33:		    << "'" << url << "' "
+    #####:   34:		    << "-H 'Content-Type: application/json' "
+    #####:   35:		    << "-H 'Authorization: Bearer sk-sxWGh4hWeExbe8sqZEkgBi4E9l8E53oaAaoYEzjxbzR5IOgk' "
+    #####:   36:		    << "-d '" << body << "'";
+        -:   37:
+        -:   38:		// Execute command
+    #####:   39:		std::string output = ExecuteCommandInternal(cmd.str());
+        -:   40:
+        -:   41:		// Parse status (curl returns 0 on success)
+    #####:   42:		Response response;
+    #####:   43:		response.status_code = (output.empty() && !body.empty()) ? -1 : 0;
+    #####:   44:		response.body = output;
+        -:   45:
+    #####:   46:		return response;
+    #####:   47:	}
+        -:   48:
+    #####:   49:	std::string ExecuteCommand(const std::string& command) override {
+    #####:   50:		return ExecuteCommandInternal(command);
+        -:   51:	}
+        -:   52:
+        -:   53:private:
+    #####:   54:	std::string ExecuteCommandInternal(const std::string& command) {
+    #####:   55:		FILE* pipe = popen(command.c_str(), "r");
+    #####:   56:		if (!pipe) {
+    #####:   57:			return "";
+        -:   58:		}
+        -:   59:
+        -:   60:		char buffer[4096];
+    #####:   61:		std::ostringstream response;
+    #####:   62:		size_t total_read = 0;
+    #####:   63:		while (fgets(buffer, sizeof(buffer), pipe) != nullptr && total_read < 100000) {
+    #####:   64:			response << buffer;
+    #####:   65:			total_read += strlen(buffer);
+        -:   66:		}
+        -:   67:
+    #####:   68:		int status = pclose(pipe);
+    #####:   69:		if (status != 0) {
+    #####:   70:			return "";
+        -:   71:		}
+        -:   72:
+    #####:   73:		return response.str();
+    #####:   74:	}
+        -:   75:};
+        -:   76:
+        -:   77:// ============================================================================
+        -:   78:// Real System Clock Implementation
+        -:   79:// ============================================================================
+        -:   80:
+        -:   81:class RealSystemClock : public ISystemClock {
+        -:   82:public:
+    #####:   83:	void SleepMs(int milliseconds) override {
+    #####:   84:		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    #####:   85:	}
+        -:   86:};
+        -:   87:
+        -:   88:// ============================================================================
+        -:   89:// Real Random Generator Implementation
+        -:   90:// ============================================================================
+        -:   91:
+        -:   92:class RealRandomGenerator : public IRandomGenerator {
+        -:   93:public:
+    #####:   94:	RealRandomGenerator() {
+        -:   95:		// Seed random number generator
+    #####:   96:		std::srand(static_cast<unsigned>(std::time(nullptr)));
+    #####:   97:	}
+        -:   98:
+    #####:   99:	int GetRandomInt(int min, int max) override {
+    #####:  100:		if (max <= min) {
+    #####:  101:			return min;
+        -:  102:		}
+    #####:  103:		return min + (std::rand() % (max - min + 1));
+    #####:  104:	}
+        -:  105:};
+        -:  106:
+        -:  107:// ============================================================================
+        -:  108:// Factory Implementations
+        -:  109:// ============================================================================
+        -:  110:
+    #####:  111:std::unique_ptr<IHTTPClient> ComponentFactory::CreateDefaultHTTPClient() {
+    #####:  112:	return std::make_unique<RealHTTPClient>();
+        -:  113:}
+        -:  114:
+    #####:  115:std::unique_ptr<ISystemClock> ComponentFactory::CreateDefaultSystemClock() {
+    #####:  116:	return std::make_unique<RealSystemClock>();
+        -:  117:}
+        -:  118:
+    #####:  119:std::unique_ptr<IRandomGenerator> ComponentFactory::CreateDefaultRandomGenerator() {
+    #####:  120:	return std::make_unique<RealRandomGenerator>();
+        -:  121:}
+        -:  122:
+        -:  123:} // namespace duckdb

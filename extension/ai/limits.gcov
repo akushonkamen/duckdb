@@ -1,0 +1,589 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/limits
+        -:    0:Graph:../../build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:../../build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:// -*- C++ -*-
+        -:    2://===----------------------------------------------------------------------===//
+        -:    3://
+        -:    4:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    5:// See https://llvm.org/LICENSE.txt for license information.
+        -:    6:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    7://
+        -:    8://===----------------------------------------------------------------------===//
+        -:    9:
+        -:   10:#ifndef _LIBCPP_LIMITS
+        -:   11:#define _LIBCPP_LIMITS
+        -:   12:
+        -:   13:/*
+        -:   14:    limits synopsis
+        -:   15:
+        -:   16:namespace std
+        -:   17:{
+        -:   18:
+        -:   19:template<class T>
+        -:   20:class numeric_limits
+        -:   21:{
+        -:   22:public:
+        -:   23:    static constexpr bool is_specialized = false;
+        -:   24:    static constexpr T min() noexcept;
+        -:   25:    static constexpr T max() noexcept;
+        -:   26:    static constexpr T lowest() noexcept;
+        -:   27:
+        -:   28:    static constexpr int  digits = 0;
+        -:   29:    static constexpr int  digits10 = 0;
+        -:   30:    static constexpr int  max_digits10 = 0;
+        -:   31:    static constexpr bool is_signed = false;
+        -:   32:    static constexpr bool is_integer = false;
+        -:   33:    static constexpr bool is_exact = false;
+        -:   34:    static constexpr int  radix = 0;
+        -:   35:    static constexpr T epsilon() noexcept;
+        -:   36:    static constexpr T round_error() noexcept;
+        -:   37:
+        -:   38:    static constexpr int  min_exponent = 0;
+        -:   39:    static constexpr int  min_exponent10 = 0;
+        -:   40:    static constexpr int  max_exponent = 0;
+        -:   41:    static constexpr int  max_exponent10 = 0;
+        -:   42:
+        -:   43:    static constexpr bool has_infinity = false;
+        -:   44:    static constexpr bool has_quiet_NaN = false;
+        -:   45:    static constexpr bool has_signaling_NaN = false;
+        -:   46:    static constexpr float_denorm_style has_denorm = denorm_absent; // deprecated in C++23
+        -:   47:    static constexpr bool has_denorm_loss = false;                  // deprecated in C++23
+        -:   48:    static constexpr T infinity() noexcept;
+        -:   49:    static constexpr T quiet_NaN() noexcept;
+        -:   50:    static constexpr T signaling_NaN() noexcept;
+        -:   51:    static constexpr T denorm_min() noexcept;
+        -:   52:
+        -:   53:    static constexpr bool is_iec559 = false;
+        -:   54:    static constexpr bool is_bounded = false;
+        -:   55:    static constexpr bool is_modulo = false;
+        -:   56:
+        -:   57:    static constexpr bool traps = false;
+        -:   58:    static constexpr bool tinyness_before = false;
+        -:   59:    static constexpr float_round_style round_style = round_toward_zero;
+        -:   60:};
+        -:   61:
+        -:   62:enum float_round_style
+        -:   63:{
+        -:   64:    round_indeterminate       = -1,
+        -:   65:    round_toward_zero         =  0,
+        -:   66:    round_to_nearest          =  1,
+        -:   67:    round_toward_infinity     =  2,
+        -:   68:    round_toward_neg_infinity =  3
+        -:   69:};
+        -:   70:
+        -:   71:enum float_denorm_style // deprecated in C++23
+        -:   72:{
+        -:   73:    denorm_indeterminate = -1,
+        -:   74:    denorm_absent = 0,
+        -:   75:    denorm_present = 1
+        -:   76:};
+        -:   77:
+        -:   78:template<> class numeric_limits<cv bool>;
+        -:   79:
+        -:   80:template<> class numeric_limits<cv char>;
+        -:   81:template<> class numeric_limits<cv signed char>;
+        -:   82:template<> class numeric_limits<cv unsigned char>;
+        -:   83:template<> class numeric_limits<cv wchar_t>;
+        -:   84:template<> class numeric_limits<cv char8_t>; // C++20
+        -:   85:template<> class numeric_limits<cv char16_t>;
+        -:   86:template<> class numeric_limits<cv char32_t>;
+        -:   87:
+        -:   88:template<> class numeric_limits<cv short>;
+        -:   89:template<> class numeric_limits<cv int>;
+        -:   90:template<> class numeric_limits<cv long>;
+        -:   91:template<> class numeric_limits<cv long long>;
+        -:   92:template<> class numeric_limits<cv unsigned short>;
+        -:   93:template<> class numeric_limits<cv unsigned int>;
+        -:   94:template<> class numeric_limits<cv unsigned long>;
+        -:   95:template<> class numeric_limits<cv unsigned long long>;
+        -:   96:
+        -:   97:template<> class numeric_limits<cv float>;
+        -:   98:template<> class numeric_limits<cv double>;
+        -:   99:template<> class numeric_limits<cv long double>;
+        -:  100:
+        -:  101:}  // std
+        -:  102:
+        -:  103:*/
+        -:  104:
+        -:  105:#include <__config>
+        -:  106:#include <__type_traits/is_arithmetic.h>
+        -:  107:#include <__type_traits/is_signed.h>
+        -:  108:#include <__type_traits/remove_cv.h>
+        -:  109:
+        -:  110:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:  111:#  pragma GCC system_header
+        -:  112:#endif
+        -:  113:
+        -:  114:_LIBCPP_PUSH_MACROS
+        -:  115:#include <__undef_macros>
+        -:  116:#include <version>
+        -:  117:
+        -:  118:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:  119:
+        -:  120:enum float_round_style {
+        -:  121:  round_indeterminate       = -1,
+        -:  122:  round_toward_zero         = 0,
+        -:  123:  round_to_nearest          = 1,
+        -:  124:  round_toward_infinity     = 2,
+        -:  125:  round_toward_neg_infinity = 3
+        -:  126:};
+        -:  127:
+        -:  128:enum _LIBCPP_DEPRECATED_IN_CXX23 float_denorm_style {
+        -:  129:  denorm_indeterminate = -1,
+        -:  130:  denorm_absent        = 0,
+        -:  131:  denorm_present       = 1
+        -:  132:};
+        -:  133:
+        -:  134:template <class _Tp, bool = is_arithmetic<_Tp>::value>
+        -:  135:class __libcpp_numeric_limits {
+        -:  136:protected:
+        -:  137:  typedef _Tp type;
+        -:  138:
+        -:  139:  static _LIBCPP_CONSTEXPR const bool is_specialized = false;
+        -:  140:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type min() _NOEXCEPT { return type(); }
+        -:  141:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type max() _NOEXCEPT { return type(); }
+        -:  142:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT { return type(); }
+        -:  143:
+        -:  144:  static _LIBCPP_CONSTEXPR const int digits       = 0;
+        -:  145:  static _LIBCPP_CONSTEXPR const int digits10     = 0;
+        -:  146:  static _LIBCPP_CONSTEXPR const int max_digits10 = 0;
+        -:  147:  static _LIBCPP_CONSTEXPR const bool is_signed   = false;
+        -:  148:  static _LIBCPP_CONSTEXPR const bool is_integer  = false;
+        -:  149:  static _LIBCPP_CONSTEXPR const bool is_exact    = false;
+        -:  150:  static _LIBCPP_CONSTEXPR const int radix        = 0;
+        -:  151:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT { return type(); }
+        -:  152:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT { return type(); }
+        -:  153:
+        -:  154:  static _LIBCPP_CONSTEXPR const int min_exponent   = 0;
+        -:  155:  static _LIBCPP_CONSTEXPR const int min_exponent10 = 0;
+        -:  156:  static _LIBCPP_CONSTEXPR const int max_exponent   = 0;
+        -:  157:  static _LIBCPP_CONSTEXPR const int max_exponent10 = 0;
+        -:  158:
+        -:  159:  static _LIBCPP_CONSTEXPR const bool has_infinity                                         = false;
+        -:  160:  static _LIBCPP_CONSTEXPR const bool has_quiet_NaN                                        = false;
+        -:  161:  static _LIBCPP_CONSTEXPR const bool has_signaling_NaN                                    = false;
+        -:  162:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
+        -:  163:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const bool has_denorm_loss          = false;
+        -:  164:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT { return type(); }
+        -:  165:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT { return type(); }
+        -:  166:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT { return type(); }
+        -:  167:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT { return type(); }
+        -:  168:
+        -:  169:  static _LIBCPP_CONSTEXPR const bool is_iec559  = false;
+        -:  170:  static _LIBCPP_CONSTEXPR const bool is_bounded = false;
+        -:  171:  static _LIBCPP_CONSTEXPR const bool is_modulo  = false;
+        -:  172:
+        -:  173:  static _LIBCPP_CONSTEXPR const bool traps                    = false;
+        -:  174:  static _LIBCPP_CONSTEXPR const bool tinyness_before          = false;
+        -:  175:  static _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
+        -:  176:};
+        -:  177:
+        -:  178:template <class _Tp, int __digits, bool _IsSigned>
+        -:  179:struct __libcpp_compute_min {
+        -:  180:  static _LIBCPP_CONSTEXPR const _Tp value = _Tp(_Tp(1) << __digits);
+        -:  181:};
+        -:  182:
+        -:  183:template <class _Tp, int __digits>
+        -:  184:struct __libcpp_compute_min<_Tp, __digits, false> {
+        -:  185:  static _LIBCPP_CONSTEXPR const _Tp value = _Tp(0);
+        -:  186:};
+        -:  187:
+        -:  188:template <class _Tp>
+        -:  189:class __libcpp_numeric_limits<_Tp, true> {
+        -:  190:protected:
+        -:  191:  typedef _Tp type;
+        -:  192:
+        -:  193:  static _LIBCPP_CONSTEXPR const bool is_specialized = true;
+        -:  194:
+        -:  195:  static _LIBCPP_CONSTEXPR const bool is_signed   = type(-1) < type(0);
+        -:  196:  static _LIBCPP_CONSTEXPR const int digits       = static_cast<int>(sizeof(type) * __CHAR_BIT__ - is_signed);
+        -:  197:  static _LIBCPP_CONSTEXPR const int digits10     = digits * 3 / 10;
+        -:  198:  static _LIBCPP_CONSTEXPR const int max_digits10 = 0;
+        -:  199:  static _LIBCPP_CONSTEXPR const type __min       = __libcpp_compute_min<type, digits, is_signed>::value;
+        -:  200:  static _LIBCPP_CONSTEXPR const type __max       = is_signed ? type(type(~0) ^ __min) : type(~0);
+        -:  201:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type min() _NOEXCEPT { return __min; }
+       36:  202:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type max() _NOEXCEPT { return __max; }
+        -:  203:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT { return min(); }
+        -:  204:
+        -:  205:  static _LIBCPP_CONSTEXPR const bool is_integer = true;
+        -:  206:  static _LIBCPP_CONSTEXPR const bool is_exact   = true;
+        -:  207:  static _LIBCPP_CONSTEXPR const int radix       = 2;
+        -:  208:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT { return type(0); }
+        -:  209:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT { return type(0); }
+        -:  210:
+        -:  211:  static _LIBCPP_CONSTEXPR const int min_exponent   = 0;
+        -:  212:  static _LIBCPP_CONSTEXPR const int min_exponent10 = 0;
+        -:  213:  static _LIBCPP_CONSTEXPR const int max_exponent   = 0;
+        -:  214:  static _LIBCPP_CONSTEXPR const int max_exponent10 = 0;
+        -:  215:
+        -:  216:  static _LIBCPP_CONSTEXPR const bool has_infinity                                         = false;
+        -:  217:  static _LIBCPP_CONSTEXPR const bool has_quiet_NaN                                        = false;
+        -:  218:  static _LIBCPP_CONSTEXPR const bool has_signaling_NaN                                    = false;
+        -:  219:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
+        -:  220:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const bool has_denorm_loss          = false;
+        -:  221:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT { return type(0); }
+        -:  222:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT { return type(0); }
+        -:  223:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT { return type(0); }
+        -:  224:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT { return type(0); }
+        -:  225:
+        -:  226:  static _LIBCPP_CONSTEXPR const bool is_iec559  = false;
+        -:  227:  static _LIBCPP_CONSTEXPR const bool is_bounded = true;
+        -:  228:  static _LIBCPP_CONSTEXPR const bool is_modulo  = !std::is_signed<_Tp>::value;
+        -:  229:
+        -:  230:#if defined(__i386__) || defined(__x86_64__) || defined(__pnacl__) || defined(__wasm__)
+        -:  231:  static _LIBCPP_CONSTEXPR const bool traps = true;
+        -:  232:#else
+        -:  233:  static _LIBCPP_CONSTEXPR const bool traps = false;
+        -:  234:#endif
+        -:  235:  static _LIBCPP_CONSTEXPR const bool tinyness_before          = false;
+        -:  236:  static _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
+        -:  237:};
+        -:  238:
+        -:  239:template <>
+        -:  240:class __libcpp_numeric_limits<bool, true> {
+        -:  241:protected:
+        -:  242:  typedef bool type;
+        -:  243:
+        -:  244:  static _LIBCPP_CONSTEXPR const bool is_specialized = true;
+        -:  245:
+        -:  246:  static _LIBCPP_CONSTEXPR const bool is_signed   = false;
+        -:  247:  static _LIBCPP_CONSTEXPR const int digits       = 1;
+        -:  248:  static _LIBCPP_CONSTEXPR const int digits10     = 0;
+        -:  249:  static _LIBCPP_CONSTEXPR const int max_digits10 = 0;
+        -:  250:  static _LIBCPP_CONSTEXPR const type __min       = false;
+        -:  251:  static _LIBCPP_CONSTEXPR const type __max       = true;
+        -:  252:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type min() _NOEXCEPT { return __min; }
+        -:  253:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type max() _NOEXCEPT { return __max; }
+        -:  254:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT { return min(); }
+        -:  255:
+        -:  256:  static _LIBCPP_CONSTEXPR const bool is_integer = true;
+        -:  257:  static _LIBCPP_CONSTEXPR const bool is_exact   = true;
+        -:  258:  static _LIBCPP_CONSTEXPR const int radix       = 2;
+        -:  259:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT { return type(0); }
+        -:  260:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT { return type(0); }
+        -:  261:
+        -:  262:  static _LIBCPP_CONSTEXPR const int min_exponent   = 0;
+        -:  263:  static _LIBCPP_CONSTEXPR const int min_exponent10 = 0;
+        -:  264:  static _LIBCPP_CONSTEXPR const int max_exponent   = 0;
+        -:  265:  static _LIBCPP_CONSTEXPR const int max_exponent10 = 0;
+        -:  266:
+        -:  267:  static _LIBCPP_CONSTEXPR const bool has_infinity                                         = false;
+        -:  268:  static _LIBCPP_CONSTEXPR const bool has_quiet_NaN                                        = false;
+        -:  269:  static _LIBCPP_CONSTEXPR const bool has_signaling_NaN                                    = false;
+        -:  270:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
+        -:  271:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const bool has_denorm_loss          = false;
+        -:  272:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT { return type(0); }
+        -:  273:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT { return type(0); }
+        -:  274:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT { return type(0); }
+        -:  275:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT { return type(0); }
+        -:  276:
+        -:  277:  static _LIBCPP_CONSTEXPR const bool is_iec559  = false;
+        -:  278:  static _LIBCPP_CONSTEXPR const bool is_bounded = true;
+        -:  279:  static _LIBCPP_CONSTEXPR const bool is_modulo  = false;
+        -:  280:
+        -:  281:  static _LIBCPP_CONSTEXPR const bool traps                    = false;
+        -:  282:  static _LIBCPP_CONSTEXPR const bool tinyness_before          = false;
+        -:  283:  static _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
+        -:  284:};
+        -:  285:
+        -:  286:template <>
+        -:  287:class __libcpp_numeric_limits<float, true> {
+        -:  288:protected:
+        -:  289:  typedef float type;
+        -:  290:
+        -:  291:  static _LIBCPP_CONSTEXPR const bool is_specialized = true;
+        -:  292:
+        -:  293:  static _LIBCPP_CONSTEXPR const bool is_signed   = true;
+        -:  294:  static _LIBCPP_CONSTEXPR const int digits       = __FLT_MANT_DIG__;
+        -:  295:  static _LIBCPP_CONSTEXPR const int digits10     = __FLT_DIG__;
+        -:  296:  static _LIBCPP_CONSTEXPR const int max_digits10 = 2 + (digits * 30103l) / 100000l;
+        -:  297:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type min() _NOEXCEPT { return __FLT_MIN__; }
+        -:  298:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type max() _NOEXCEPT { return __FLT_MAX__; }
+        -:  299:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT { return -max(); }
+        -:  300:
+        -:  301:  static _LIBCPP_CONSTEXPR const bool is_integer = false;
+        -:  302:  static _LIBCPP_CONSTEXPR const bool is_exact   = false;
+        -:  303:  static _LIBCPP_CONSTEXPR const int radix       = __FLT_RADIX__;
+        -:  304:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT { return __FLT_EPSILON__; }
+        -:  305:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT { return 0.5F; }
+        -:  306:
+        -:  307:  static _LIBCPP_CONSTEXPR const int min_exponent   = __FLT_MIN_EXP__;
+        -:  308:  static _LIBCPP_CONSTEXPR const int min_exponent10 = __FLT_MIN_10_EXP__;
+        -:  309:  static _LIBCPP_CONSTEXPR const int max_exponent   = __FLT_MAX_EXP__;
+        -:  310:  static _LIBCPP_CONSTEXPR const int max_exponent10 = __FLT_MAX_10_EXP__;
+        -:  311:
+        -:  312:  static _LIBCPP_CONSTEXPR const bool has_infinity                                         = true;
+        -:  313:  static _LIBCPP_CONSTEXPR const bool has_quiet_NaN                                        = true;
+        -:  314:  static _LIBCPP_CONSTEXPR const bool has_signaling_NaN                                    = true;
+        -:  315:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
+        -:  316:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const bool has_denorm_loss          = false;
+        -:  317:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {
+        -:  318:    return __builtin_huge_valf();
+        -:  319:  }
+        -:  320:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {
+        -:  321:    return __builtin_nanf("");
+        -:  322:  }
+        -:  323:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {
+        -:  324:    return __builtin_nansf("");
+        -:  325:  }
+        -:  326:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {
+        -:  327:    return __FLT_DENORM_MIN__;
+        -:  328:  }
+        -:  329:
+        -:  330:  static _LIBCPP_CONSTEXPR const bool is_iec559  = true;
+        -:  331:  static _LIBCPP_CONSTEXPR const bool is_bounded = true;
+        -:  332:  static _LIBCPP_CONSTEXPR const bool is_modulo  = false;
+        -:  333:
+        -:  334:  static _LIBCPP_CONSTEXPR const bool traps = false;
+        -:  335:#if (defined(__arm__) || defined(__aarch64__))
+        -:  336:  static _LIBCPP_CONSTEXPR const bool tinyness_before = true;
+        -:  337:#else
+        -:  338:  static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
+        -:  339:#endif
+        -:  340:  static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
+        -:  341:};
+        -:  342:
+        -:  343:template <>
+        -:  344:class __libcpp_numeric_limits<double, true> {
+        -:  345:protected:
+        -:  346:  typedef double type;
+        -:  347:
+        -:  348:  static _LIBCPP_CONSTEXPR const bool is_specialized = true;
+        -:  349:
+        -:  350:  static _LIBCPP_CONSTEXPR const bool is_signed   = true;
+        -:  351:  static _LIBCPP_CONSTEXPR const int digits       = __DBL_MANT_DIG__;
+        -:  352:  static _LIBCPP_CONSTEXPR const int digits10     = __DBL_DIG__;
+        -:  353:  static _LIBCPP_CONSTEXPR const int max_digits10 = 2 + (digits * 30103l) / 100000l;
+        -:  354:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type min() _NOEXCEPT { return __DBL_MIN__; }
+        -:  355:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type max() _NOEXCEPT { return __DBL_MAX__; }
+        -:  356:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT { return -max(); }
+        -:  357:
+        -:  358:  static _LIBCPP_CONSTEXPR const bool is_integer = false;
+        -:  359:  static _LIBCPP_CONSTEXPR const bool is_exact   = false;
+        -:  360:  static _LIBCPP_CONSTEXPR const int radix       = __FLT_RADIX__;
+        -:  361:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT { return __DBL_EPSILON__; }
+        -:  362:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT { return 0.5; }
+        -:  363:
+        -:  364:  static _LIBCPP_CONSTEXPR const int min_exponent   = __DBL_MIN_EXP__;
+        -:  365:  static _LIBCPP_CONSTEXPR const int min_exponent10 = __DBL_MIN_10_EXP__;
+        -:  366:  static _LIBCPP_CONSTEXPR const int max_exponent   = __DBL_MAX_EXP__;
+        -:  367:  static _LIBCPP_CONSTEXPR const int max_exponent10 = __DBL_MAX_10_EXP__;
+        -:  368:
+        -:  369:  static _LIBCPP_CONSTEXPR const bool has_infinity                                         = true;
+        -:  370:  static _LIBCPP_CONSTEXPR const bool has_quiet_NaN                                        = true;
+        -:  371:  static _LIBCPP_CONSTEXPR const bool has_signaling_NaN                                    = true;
+        -:  372:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
+        -:  373:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const bool has_denorm_loss          = false;
+        -:  374:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {
+        -:  375:    return __builtin_huge_val();
+        -:  376:  }
+        -:  377:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {
+        -:  378:    return __builtin_nan("");
+        -:  379:  }
+        -:  380:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {
+        -:  381:    return __builtin_nans("");
+        -:  382:  }
+        -:  383:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {
+        -:  384:    return __DBL_DENORM_MIN__;
+        -:  385:  }
+        -:  386:
+        -:  387:  static _LIBCPP_CONSTEXPR const bool is_iec559  = true;
+        -:  388:  static _LIBCPP_CONSTEXPR const bool is_bounded = true;
+        -:  389:  static _LIBCPP_CONSTEXPR const bool is_modulo  = false;
+        -:  390:
+        -:  391:  static _LIBCPP_CONSTEXPR const bool traps = false;
+        -:  392:#if (defined(__arm__) || defined(__aarch64__))
+        -:  393:  static _LIBCPP_CONSTEXPR const bool tinyness_before = true;
+        -:  394:#else
+        -:  395:  static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
+        -:  396:#endif
+        -:  397:  static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
+        -:  398:};
+        -:  399:
+        -:  400:template <>
+        -:  401:class __libcpp_numeric_limits<long double, true> {
+        -:  402:protected:
+        -:  403:  typedef long double type;
+        -:  404:
+        -:  405:  static _LIBCPP_CONSTEXPR const bool is_specialized = true;
+        -:  406:
+        -:  407:  static _LIBCPP_CONSTEXPR const bool is_signed   = true;
+        -:  408:  static _LIBCPP_CONSTEXPR const int digits       = __LDBL_MANT_DIG__;
+        -:  409:  static _LIBCPP_CONSTEXPR const int digits10     = __LDBL_DIG__;
+        -:  410:  static _LIBCPP_CONSTEXPR const int max_digits10 = 2 + (digits * 30103l) / 100000l;
+        -:  411:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type min() _NOEXCEPT { return __LDBL_MIN__; }
+        -:  412:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type max() _NOEXCEPT { return __LDBL_MAX__; }
+        -:  413:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT { return -max(); }
+        -:  414:
+        -:  415:  static _LIBCPP_CONSTEXPR const bool is_integer = false;
+        -:  416:  static _LIBCPP_CONSTEXPR const bool is_exact   = false;
+        -:  417:  static _LIBCPP_CONSTEXPR const int radix       = __FLT_RADIX__;
+        -:  418:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT { return __LDBL_EPSILON__; }
+        -:  419:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT { return 0.5L; }
+        -:  420:
+        -:  421:  static _LIBCPP_CONSTEXPR const int min_exponent   = __LDBL_MIN_EXP__;
+        -:  422:  static _LIBCPP_CONSTEXPR const int min_exponent10 = __LDBL_MIN_10_EXP__;
+        -:  423:  static _LIBCPP_CONSTEXPR const int max_exponent   = __LDBL_MAX_EXP__;
+        -:  424:  static _LIBCPP_CONSTEXPR const int max_exponent10 = __LDBL_MAX_10_EXP__;
+        -:  425:
+        -:  426:  static _LIBCPP_CONSTEXPR const bool has_infinity                                         = true;
+        -:  427:  static _LIBCPP_CONSTEXPR const bool has_quiet_NaN                                        = true;
+        -:  428:  static _LIBCPP_CONSTEXPR const bool has_signaling_NaN                                    = true;
+        -:  429:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
+        -:  430:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const bool has_denorm_loss          = false;
+        -:  431:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {
+        -:  432:    return __builtin_huge_vall();
+        -:  433:  }
+        -:  434:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {
+        -:  435:    return __builtin_nanl("");
+        -:  436:  }
+        -:  437:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {
+        -:  438:    return __builtin_nansl("");
+        -:  439:  }
+        -:  440:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {
+        -:  441:    return __LDBL_DENORM_MIN__;
+        -:  442:  }
+        -:  443:
+        -:  444:#if defined(__powerpc__) && defined(__LONG_DOUBLE_IBM128__)
+        -:  445:  static _LIBCPP_CONSTEXPR const bool is_iec559 = false;
+        -:  446:#else
+        -:  447:  static _LIBCPP_CONSTEXPR const bool is_iec559 = true;
+        -:  448:#endif
+        -:  449:  static _LIBCPP_CONSTEXPR const bool is_bounded = true;
+        -:  450:  static _LIBCPP_CONSTEXPR const bool is_modulo  = false;
+        -:  451:
+        -:  452:  static _LIBCPP_CONSTEXPR const bool traps = false;
+        -:  453:#if (defined(__arm__) || defined(__aarch64__))
+        -:  454:  static _LIBCPP_CONSTEXPR const bool tinyness_before = true;
+        -:  455:#else
+        -:  456:  static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
+        -:  457:#endif
+        -:  458:  static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
+        -:  459:};
+        -:  460:
+        -:  461:template <class _Tp>
+        -:  462:class _LIBCPP_TEMPLATE_VIS numeric_limits : private __libcpp_numeric_limits<_Tp> {
+        -:  463:  typedef __libcpp_numeric_limits<_Tp> __base;
+        -:  464:  typedef typename __base::type type;
+        -:  465:
+        -:  466:public:
+        -:  467:  static _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
+        -:  468:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type min() _NOEXCEPT { return __base::min(); }
+       36:  469:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type max() _NOEXCEPT { return __base::max(); }
+        -:  470:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT { return __base::lowest(); }
+        -:  471:
+        -:  472:  static _LIBCPP_CONSTEXPR const int digits       = __base::digits;
+        -:  473:  static _LIBCPP_CONSTEXPR const int digits10     = __base::digits10;
+        -:  474:  static _LIBCPP_CONSTEXPR const int max_digits10 = __base::max_digits10;
+        -:  475:  static _LIBCPP_CONSTEXPR const bool is_signed   = __base::is_signed;
+        -:  476:  static _LIBCPP_CONSTEXPR const bool is_integer  = __base::is_integer;
+        -:  477:  static _LIBCPP_CONSTEXPR const bool is_exact    = __base::is_exact;
+        -:  478:  static _LIBCPP_CONSTEXPR const int radix        = __base::radix;
+        -:  479:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {
+        -:  480:    return __base::epsilon();
+        -:  481:  }
+        -:  482:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {
+        -:  483:    return __base::round_error();
+        -:  484:  }
+        -:  485:
+        -:  486:  static _LIBCPP_CONSTEXPR const int min_exponent   = __base::min_exponent;
+        -:  487:  static _LIBCPP_CONSTEXPR const int min_exponent10 = __base::min_exponent10;
+        -:  488:  static _LIBCPP_CONSTEXPR const int max_exponent   = __base::max_exponent;
+        -:  489:  static _LIBCPP_CONSTEXPR const int max_exponent10 = __base::max_exponent10;
+        -:  490:
+        -:  491:  static _LIBCPP_CONSTEXPR const bool has_infinity      = __base::has_infinity;
+        -:  492:  static _LIBCPP_CONSTEXPR const bool has_quiet_NaN     = __base::has_quiet_NaN;
+        -:  493:  static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
+        -:  494:  _LIBCPP_SUPPRESS_DEPRECATED_PUSH
+        -:  495:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
+        -:  496:  static _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_CONSTEXPR const bool has_denorm_loss          = __base::has_denorm_loss;
+        -:  497:  _LIBCPP_SUPPRESS_DEPRECATED_POP
+        -:  498:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {
+        -:  499:    return __base::infinity();
+        -:  500:  }
+        -:  501:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {
+        -:  502:    return __base::quiet_NaN();
+        -:  503:  }
+        -:  504:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {
+        -:  505:    return __base::signaling_NaN();
+        -:  506:  }
+        -:  507:  _LIBCPP_NODISCARD _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {
+        -:  508:    return __base::denorm_min();
+        -:  509:  }
+        -:  510:
+        -:  511:  static _LIBCPP_CONSTEXPR const bool is_iec559  = __base::is_iec559;
+        -:  512:  static _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
+        -:  513:  static _LIBCPP_CONSTEXPR const bool is_modulo  = __base::is_modulo;
+        -:  514:
+        -:  515:  static _LIBCPP_CONSTEXPR const bool traps                    = __base::traps;
+        -:  516:  static _LIBCPP_CONSTEXPR const bool tinyness_before          = __base::tinyness_before;
+        -:  517:  static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
+        -:  518:};
+        -:  519:
+        -:  520:template <class _Tp>
+        -:  521:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_specialized;
+        -:  522:template <class _Tp>
+        -:  523:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::digits;
+        -:  524:template <class _Tp>
+        -:  525:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::digits10;
+        -:  526:template <class _Tp>
+        -:  527:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::max_digits10;
+        -:  528:template <class _Tp>
+        -:  529:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_signed;
+        -:  530:template <class _Tp>
+        -:  531:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_integer;
+        -:  532:template <class _Tp>
+        -:  533:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_exact;
+        -:  534:template <class _Tp>
+        -:  535:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::radix;
+        -:  536:template <class _Tp>
+        -:  537:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::min_exponent;
+        -:  538:template <class _Tp>
+        -:  539:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::min_exponent10;
+        -:  540:template <class _Tp>
+        -:  541:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::max_exponent;
+        -:  542:template <class _Tp>
+        -:  543:_LIBCPP_CONSTEXPR const int numeric_limits<_Tp>::max_exponent10;
+        -:  544:template <class _Tp>
+        -:  545:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::has_infinity;
+        -:  546:template <class _Tp>
+        -:  547:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::has_quiet_NaN;
+        -:  548:template <class _Tp>
+        -:  549:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::has_signaling_NaN;
+        -:  550:template <class _Tp>
+        -:  551:_LIBCPP_CONSTEXPR const float_denorm_style numeric_limits<_Tp>::has_denorm;
+        -:  552:template <class _Tp>
+        -:  553:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::has_denorm_loss;
+        -:  554:template <class _Tp>
+        -:  555:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_iec559;
+        -:  556:template <class _Tp>
+        -:  557:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_bounded;
+        -:  558:template <class _Tp>
+        -:  559:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_modulo;
+        -:  560:template <class _Tp>
+        -:  561:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::traps;
+        -:  562:template <class _Tp>
+        -:  563:_LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::tinyness_before;
+        -:  564:template <class _Tp>
+        -:  565:_LIBCPP_CONSTEXPR const float_round_style numeric_limits<_Tp>::round_style;
+        -:  566:
+        -:  567:template <class _Tp>
+        -:  568:class _LIBCPP_TEMPLATE_VIS numeric_limits<const _Tp> : public numeric_limits<_Tp> {};
+        -:  569:
+        -:  570:template <class _Tp>
+        -:  571:class _LIBCPP_TEMPLATE_VIS numeric_limits<volatile _Tp> : public numeric_limits<_Tp> {};
+        -:  572:
+        -:  573:template <class _Tp>
+        -:  574:class _LIBCPP_TEMPLATE_VIS numeric_limits<const volatile _Tp> : public numeric_limits<_Tp> {};
+        -:  575:
+        -:  576:_LIBCPP_END_NAMESPACE_STD
+        -:  577:
+        -:  578:_LIBCPP_POP_MACROS
+        -:  579:
+        -:  580:#if !defined(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES) && _LIBCPP_STD_VER <= 20
+        -:  581:#  include <type_traits>
+        -:  582:#endif
+        -:  583:
+        -:  584:#endif // _LIBCPP_LIMITS

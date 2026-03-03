@@ -48,6 +48,9 @@ public:
 
 	~AIFunctionExecutor() = default;
 
+	// Get global executor instance (for use in aggregate functions)
+	static AIFunctionExecutor& GetGlobalExecutor();
+
 	// Call AI API with retry logic
 	std::string CallAPIWithRetry(const std::string &image,
 	                             const std::string &prompt,
@@ -163,6 +166,21 @@ private:
 		pclose(pipe);
 		return response.str();
 	}
+
+private:
+	static std::unique_ptr<AIFunctionExecutor> g_global_executor;
+	static std::once_flag g_executor_init_flag;
 };
+
+// Static member definitions
+inline std::unique_ptr<AIFunctionExecutor> AIFunctionExecutor::g_global_executor = nullptr;
+inline std::once_flag AIFunctionExecutor::g_executor_init_flag;
+
+inline AIFunctionExecutor& AIFunctionExecutor::GetGlobalExecutor() {
+	std::call_once(g_executor_init_flag, []() {
+		g_global_executor = std::make_unique<AIFunctionExecutor>();
+	});
+	return *g_global_executor;
+}
 
 } // namespace duckdb

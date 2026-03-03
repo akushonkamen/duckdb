@@ -1,0 +1,103 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/fill_n.h
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://
+        -:    3:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    4:// See https://llvm.org/LICENSE.txt for license information.
+        -:    5:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#ifndef _LIBCPP___ALGORITHM_FILL_N_H
+        -:   10:#define _LIBCPP___ALGORITHM_FILL_N_H
+        -:   11:
+        -:   12:#include <__algorithm/min.h>
+        -:   13:#include <__config>
+        -:   14:#include <__fwd/bit_reference.h>
+        -:   15:#include <__iterator/iterator_traits.h>
+        -:   16:#include <__memory/pointer_traits.h>
+        -:   17:#include <__utility/convert_to_integral.h>
+        -:   18:
+        -:   19:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   20:#  pragma GCC system_header
+        -:   21:#endif
+        -:   22:
+        -:   23:_LIBCPP_PUSH_MACROS
+        -:   24:#include <__undef_macros>
+        -:   25:
+        -:   26:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   27:
+        -:   28:// fill_n isn't specialized for std::memset, because the compiler already optimizes the loop to a call to std::memset.
+        -:   29:
+        -:   30:template <class _OutputIterator, class _Size, class _Tp>
+        -:   31:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator
+        -:   32:__fill_n(_OutputIterator __first, _Size __n, const _Tp& __value);
+        -:   33:
+        -:   34:template <bool _FillVal, class _Cp>
+        -:   35:_LIBCPP_CONSTEXPR_SINCE_CXX20 _LIBCPP_HIDE_FROM_ABI void
+        -:   36:__fill_n_bool(__bit_iterator<_Cp, false> __first, typename _Cp::size_type __n) {
+        -:   37:  using _It            = __bit_iterator<_Cp, false>;
+        -:   38:  using __storage_type = typename _It::__storage_type;
+        -:   39:
+        -:   40:  const int __bits_per_word = _It::__bits_per_word;
+        -:   41:  // do first partial word
+        -:   42:  if (__first.__ctz_ != 0) {
+        -:   43:    __storage_type __clz_f = static_cast<__storage_type>(__bits_per_word - __first.__ctz_);
+        -:   44:    __storage_type __dn    = std::min(__clz_f, __n);
+        -:   45:    __storage_type __m     = (~__storage_type(0) << __first.__ctz_) & (~__storage_type(0) >> (__clz_f - __dn));
+        -:   46:    if (_FillVal)
+        -:   47:      *__first.__seg_ |= __m;
+        -:   48:    else
+        -:   49:      *__first.__seg_ &= ~__m;
+        -:   50:    __n -= __dn;
+        -:   51:    ++__first.__seg_;
+        -:   52:  }
+        -:   53:  // do middle whole words
+        -:   54:  __storage_type __nw = __n / __bits_per_word;
+        -:   55:  std::__fill_n(std::__to_address(__first.__seg_), __nw, _FillVal ? static_cast<__storage_type>(-1) : 0);
+        -:   56:  __n -= __nw * __bits_per_word;
+        -:   57:  // do last partial word
+        -:   58:  if (__n > 0) {
+        -:   59:    __first.__seg_ += __nw;
+        -:   60:    __storage_type __m = ~__storage_type(0) >> (__bits_per_word - __n);
+        -:   61:    if (_FillVal)
+        -:   62:      *__first.__seg_ |= __m;
+        -:   63:    else
+        -:   64:      *__first.__seg_ &= ~__m;
+        -:   65:  }
+        -:   66:}
+        -:   67:
+        -:   68:template <class _Cp, class _Size>
+        -:   69:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 __bit_iterator<_Cp, false>
+        -:   70:__fill_n(__bit_iterator<_Cp, false> __first, _Size __n, const bool& __value) {
+        -:   71:  if (__n > 0) {
+        -:   72:    if (__value)
+        -:   73:      std::__fill_n_bool<true>(__first, __n);
+        -:   74:    else
+        -:   75:      std::__fill_n_bool<false>(__first, __n);
+        -:   76:  }
+        -:   77:  return __first + __n;
+        -:   78:}
+        -:   79:
+        -:   80:template <class _OutputIterator, class _Size, class _Tp>
+        -:   81:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator
+       35:   82:__fill_n(_OutputIterator __first, _Size __n, const _Tp& __value) {
+       70:   83:  for (; __n > 0; ++__first, (void)--__n)
+       35:   84:    *__first = __value;
+       35:   85:  return __first;
+        -:   86:}
+        -:   87:
+        -:   88:template <class _OutputIterator, class _Size, class _Tp>
+        -:   89:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _OutputIterator
+       35:   90:fill_n(_OutputIterator __first, _Size __n, const _Tp& __value) {
+       35:   91:  return std::__fill_n(__first, std::__convert_to_integral(__n), __value);
+        -:   92:}
+        -:   93:
+        -:   94:_LIBCPP_END_NAMESPACE_STD
+        -:   95:
+        -:   96:_LIBCPP_POP_MACROS
+        -:   97:
+        -:   98:#endif // _LIBCPP___ALGORITHM_FILL_N_H

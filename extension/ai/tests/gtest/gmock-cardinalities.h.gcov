@@ -1,0 +1,164 @@
+        -:    0:Source:/opt/homebrew/include/gmock/gmock-cardinalities.h
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:// Copyright 2007, Google Inc.
+        -:    2:// All rights reserved.
+        -:    3://
+        -:    4:// Redistribution and use in source and binary forms, with or without
+        -:    5:// modification, are permitted provided that the following conditions are
+        -:    6:// met:
+        -:    7://
+        -:    8://     * Redistributions of source code must retain the above copyright
+        -:    9:// notice, this list of conditions and the following disclaimer.
+        -:   10://     * Redistributions in binary form must reproduce the above
+        -:   11:// copyright notice, this list of conditions and the following disclaimer
+        -:   12:// in the documentation and/or other materials provided with the
+        -:   13:// distribution.
+        -:   14://     * Neither the name of Google Inc. nor the names of its
+        -:   15:// contributors may be used to endorse or promote products derived from
+        -:   16:// this software without specific prior written permission.
+        -:   17://
+        -:   18:// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+        -:   19:// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+        -:   20:// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+        -:   21:// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+        -:   22:// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+        -:   23:// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+        -:   24:// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+        -:   25:// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+        -:   26:// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        -:   27:// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        -:   28:// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        -:   29:
+        -:   30:// Google Mock - a framework for writing C++ mock classes.
+        -:   31://
+        -:   32:// This file implements some commonly used cardinalities.  More
+        -:   33:// cardinalities can be defined by the user implementing the
+        -:   34:// CardinalityInterface interface if necessary.
+        -:   35:
+        -:   36:// IWYU pragma: private, include "gmock/gmock.h"
+        -:   37:// IWYU pragma: friend gmock/.*
+        -:   38:
+        -:   39:#ifndef GOOGLEMOCK_INCLUDE_GMOCK_GMOCK_CARDINALITIES_H_
+        -:   40:#define GOOGLEMOCK_INCLUDE_GMOCK_GMOCK_CARDINALITIES_H_
+        -:   41:
+        -:   42:#include <limits.h>
+        -:   43:
+        -:   44:#include <memory>
+        -:   45:#include <ostream>  // NOLINT
+        -:   46:
+        -:   47:#include "gmock/internal/gmock-port.h"
+        -:   48:#include "gtest/gtest.h"
+        -:   49:
+        -:   50:GTEST_DISABLE_MSC_WARNINGS_PUSH_(4251 \
+        -:   51:/* class A needs to have dll-interface to be used by clients of class B */)
+        -:   52:
+        -:   53:namespace testing {
+        -:   54:
+        -:   55:// To implement a cardinality Foo, define:
+        -:   56://   1. a class FooCardinality that implements the
+        -:   57://      CardinalityInterface interface, and
+        -:   58://   2. a factory function that creates a Cardinality object from a
+        -:   59://      const FooCardinality*.
+        -:   60://
+        -:   61:// The two-level delegation design follows that of Matcher, providing
+        -:   62:// consistency for extension developers.  It also eases ownership
+        -:   63:// management as Cardinality objects can now be copied like plain values.
+        -:   64:
+        -:   65:// The implementation of a cardinality.
+        -:   66:class CardinalityInterface {
+        -:   67: public:
+        -:   68:  virtual ~CardinalityInterface() = default;
+        -:   69:
+        -:   70:  // Conservative estimate on the lower/upper bound of the number of
+        -:   71:  // calls allowed.
+        -:   72:  virtual int ConservativeLowerBound() const { return 0; }
+        -:   73:  virtual int ConservativeUpperBound() const { return INT_MAX; }
+        -:   74:
+        -:   75:  // Returns true if and only if call_count calls will satisfy this
+        -:   76:  // cardinality.
+        -:   77:  virtual bool IsSatisfiedByCallCount(int call_count) const = 0;
+        -:   78:
+        -:   79:  // Returns true if and only if call_count calls will saturate this
+        -:   80:  // cardinality.
+        -:   81:  virtual bool IsSaturatedByCallCount(int call_count) const = 0;
+        -:   82:
+        -:   83:  // Describes self to an ostream.
+        -:   84:  virtual void DescribeTo(::std::ostream* os) const = 0;
+        -:   85:};
+        -:   86:
+        -:   87:// A Cardinality is a copyable and IMMUTABLE (except by assignment)
+        -:   88:// object that specifies how many times a mock function is expected to
+        -:   89:// be called.  The implementation of Cardinality is just a std::shared_ptr
+        -:   90:// to const CardinalityInterface. Don't inherit from Cardinality!
+        -:   91:class GTEST_API_ Cardinality {
+        -:   92: public:
+        -:   93:  // Constructs a null cardinality.  Needed for storing Cardinality
+        -:   94:  // objects in STL containers.
+        -:   95:  Cardinality() = default;
+        -:   96:
+        -:   97:  // Constructs a Cardinality from its implementation.
+        -:   98:  explicit Cardinality(const CardinalityInterface* impl) : impl_(impl) {}
+        -:   99:
+        -:  100:  // Conservative estimate on the lower/upper bound of the number of
+        -:  101:  // calls allowed.
+        -:  102:  int ConservativeLowerBound() const { return impl_->ConservativeLowerBound(); }
+        -:  103:  int ConservativeUpperBound() const { return impl_->ConservativeUpperBound(); }
+        -:  104:
+        -:  105:  // Returns true if and only if call_count calls will satisfy this
+        -:  106:  // cardinality.
+        -:  107:  bool IsSatisfiedByCallCount(int call_count) const {
+        -:  108:    return impl_->IsSatisfiedByCallCount(call_count);
+        -:  109:  }
+        -:  110:
+        -:  111:  // Returns true if and only if call_count calls will saturate this
+        -:  112:  // cardinality.
+       56:  113:  bool IsSaturatedByCallCount(int call_count) const {
+       56:  114:    return impl_->IsSaturatedByCallCount(call_count);
+        -:  115:  }
+        -:  116:
+        -:  117:  // Returns true if and only if call_count calls will over-saturate this
+        -:  118:  // cardinality, i.e. exceed the maximum number of allowed calls.
+        -:  119:  bool IsOverSaturatedByCallCount(int call_count) const {
+        -:  120:    return impl_->IsSaturatedByCallCount(call_count) &&
+        -:  121:           !impl_->IsSatisfiedByCallCount(call_count);
+        -:  122:  }
+        -:  123:
+        -:  124:  // Describes self to an ostream
+        -:  125:  void DescribeTo(::std::ostream* os) const { impl_->DescribeTo(os); }
+        -:  126:
+        -:  127:  // Describes the given actual call count to an ostream.
+        -:  128:  static void DescribeActualCallCountTo(int actual_call_count,
+        -:  129:                                        ::std::ostream* os);
+        -:  130:
+        -:  131: private:
+        -:  132:  std::shared_ptr<const CardinalityInterface> impl_;
+        -:  133:};
+        -:  134:
+        -:  135:// Creates a cardinality that allows at least n calls.
+        -:  136:GTEST_API_ Cardinality AtLeast(int n);
+        -:  137:
+        -:  138:// Creates a cardinality that allows at most n calls.
+        -:  139:GTEST_API_ Cardinality AtMost(int n);
+        -:  140:
+        -:  141:// Creates a cardinality that allows any number of calls.
+        -:  142:GTEST_API_ Cardinality AnyNumber();
+        -:  143:
+        -:  144:// Creates a cardinality that allows between min and max calls.
+        -:  145:GTEST_API_ Cardinality Between(int min, int max);
+        -:  146:
+        -:  147:// Creates a cardinality that allows exactly n calls.
+        -:  148:GTEST_API_ Cardinality Exactly(int n);
+        -:  149:
+        -:  150:// Creates a cardinality from its implementation.
+        -:  151:inline Cardinality MakeCardinality(const CardinalityInterface* c) {
+        -:  152:  return Cardinality(c);
+        -:  153:}
+        -:  154:
+        -:  155:}  // namespace testing
+        -:  156:
+        -:  157:GTEST_DISABLE_MSC_WARNINGS_POP_()  //  4251
+        -:  158:
+        -:  159:#endif  // GOOGLEMOCK_INCLUDE_GMOCK_GMOCK_CARDINALITIES_H_

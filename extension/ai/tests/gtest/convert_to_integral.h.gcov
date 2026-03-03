@@ -1,0 +1,73 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/convert_to_integral.h
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://
+        -:    3:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    4:// See https://llvm.org/LICENSE.txt for license information.
+        -:    5:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#ifndef _LIBCPP___UTILITY_CONVERT_TO_INTEGRAL_H
+        -:   10:#define _LIBCPP___UTILITY_CONVERT_TO_INTEGRAL_H
+        -:   11:
+        -:   12:#include <__config>
+        -:   13:#include <__type_traits/enable_if.h>
+        -:   14:#include <__type_traits/is_enum.h>
+        -:   15:#include <__type_traits/is_floating_point.h>
+        -:   16:#include <__type_traits/underlying_type.h>
+        -:   17:
+        -:   18:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   19:#  pragma GCC system_header
+        -:   20:#endif
+        -:   21:
+        -:   22:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   23:
+        -:   24:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR int __convert_to_integral(int __val) { return __val; }
+        -:   25:
+        -:   26:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR unsigned __convert_to_integral(unsigned __val) { return __val; }
+        -:   27:
+        -:   28:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR long __convert_to_integral(long __val) { return __val; }
+        -:   29:
+       35:   30:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR unsigned long __convert_to_integral(unsigned long __val) {
+       35:   31:  return __val;
+        -:   32:}
+        -:   33:
+        -:   34:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR long long __convert_to_integral(long long __val) { return __val; }
+        -:   35:
+        -:   36:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR unsigned long long __convert_to_integral(unsigned long long __val) {
+        -:   37:  return __val;
+        -:   38:}
+        -:   39:
+        -:   40:template <typename _Fp, __enable_if_t<is_floating_point<_Fp>::value, int> = 0>
+        -:   41:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR long long __convert_to_integral(_Fp __val) {
+        -:   42:  return __val;
+        -:   43:}
+        -:   44:
+        -:   45:#ifndef _LIBCPP_HAS_NO_INT128
+        -:   46:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __int128_t __convert_to_integral(__int128_t __val) { return __val; }
+        -:   47:
+        -:   48:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR __uint128_t __convert_to_integral(__uint128_t __val) { return __val; }
+        -:   49:#endif
+        -:   50:
+        -:   51:template <class _Tp, bool = is_enum<_Tp>::value>
+        -:   52:struct __sfinae_underlying_type {
+        -:   53:  typedef typename underlying_type<_Tp>::type type;
+        -:   54:  typedef decltype(((type)1) + 0) __promoted_type;
+        -:   55:};
+        -:   56:
+        -:   57:template <class _Tp>
+        -:   58:struct __sfinae_underlying_type<_Tp, false> {};
+        -:   59:
+        -:   60:template <class _Tp>
+        -:   61:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR typename __sfinae_underlying_type<_Tp>::__promoted_type
+        -:   62:__convert_to_integral(_Tp __val) {
+        -:   63:  return __val;
+        -:   64:}
+        -:   65:
+        -:   66:_LIBCPP_END_NAMESPACE_STD
+        -:   67:
+        -:   68:#endif // _LIBCPP___UTILITY_CONVERT_TO_INTEGRAL_H

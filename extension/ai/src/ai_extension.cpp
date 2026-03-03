@@ -8,6 +8,7 @@
 
 #include "ai_extension.hpp"
 #include "ai_functions.hpp"
+#include "ai_aggregate.hpp"
 
 #include "duckdb/main/extension/extension_loader.hpp"
 
@@ -17,8 +18,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// Register AI scalar functions
 	AIFunctions::RegisterScalarFunctions(loader);
 
-	// TODO M1: Register AI aggregate functions
-	// AIAggregateFunctions::RegisterAggregateFunctions(loader);
+	// Register AI aggregate functions
+	AIAggregateFunctions::RegisterAggregateFunctions(loader);
 
 	// TODO M2: Register AI table functions
 	// AITableFunctions::RegisterTableFunctions(loader);

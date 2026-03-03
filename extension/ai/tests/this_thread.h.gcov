@@ -1,0 +1,79 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__thread/this_thread.h
+        -:    0:Graph:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:// -*- C++ -*-
+        -:    2://===----------------------------------------------------------------------===//
+        -:    3://
+        -:    4:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    5:// See https://llvm.org/LICENSE.txt for license information.
+        -:    6:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    7://
+        -:    8://===----------------------------------------------------------------------===//
+        -:    9:
+        -:   10:#ifndef _LIBCPP___THREAD_THIS_THREAD_H
+        -:   11:#define _LIBCPP___THREAD_THIS_THREAD_H
+        -:   12:
+        -:   13:#include <__chrono/steady_clock.h>
+        -:   14:#include <__chrono/time_point.h>
+        -:   15:#include <__condition_variable/condition_variable.h>
+        -:   16:#include <__config>
+        -:   17:#include <__mutex/mutex.h>
+        -:   18:#include <__mutex/unique_lock.h>
+        -:   19:#include <__thread/support.h>
+        -:   20:
+        -:   21:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   22:#  pragma GCC system_header
+        -:   23:#endif
+        -:   24:
+        -:   25:_LIBCPP_PUSH_MACROS
+        -:   26:#include <__undef_macros>
+        -:   27:
+        -:   28:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   29:
+        -:   30:namespace this_thread {
+        -:   31:
+        -:   32:_LIBCPP_EXPORTED_FROM_ABI void sleep_for(const chrono::nanoseconds& __ns);
+        -:   33:
+        -:   34:template <class _Rep, class _Period>
+       30:   35:_LIBCPP_HIDE_FROM_ABI void sleep_for(const chrono::duration<_Rep, _Period>& __d) {
+       30:   36:  if (__d > chrono::duration<_Rep, _Period>::zero()) {
+        -:   37:    // The standard guarantees a 64bit signed integer resolution for nanoseconds,
+        -:   38:    // so use INT64_MAX / 1e9 as cut-off point. Use a constant to avoid <climits>
+        -:   39:    // and issues with long double folding on PowerPC with GCC.
+       30:   40:    _LIBCPP_CONSTEXPR chrono::duration<long double> __max = chrono::duration<long double>(9223372036.0L);
+        -:   41:    chrono::nanoseconds __ns;
+       30:   42:    if (__d < __max) {
+       30:   43:      __ns = chrono::duration_cast<chrono::nanoseconds>(__d);
+       30:   44:      if (__ns < __d)
+    #####:   45:        ++__ns;
+       30:   46:    } else
+    #####:   47:      __ns = chrono::nanoseconds::max();
+       30:   48:    this_thread::sleep_for(__ns);
+       30:   49:  }
+       30:   50:}
+        -:   51:
+        -:   52:template <class _Clock, class _Duration>
+        -:   53:_LIBCPP_HIDE_FROM_ABI void sleep_until(const chrono::time_point<_Clock, _Duration>& __t) {
+        -:   54:  mutex __mut;
+        -:   55:  condition_variable __cv;
+        -:   56:  unique_lock<mutex> __lk(__mut);
+        -:   57:  while (_Clock::now() < __t)
+        -:   58:    __cv.wait_until(__lk, __t);
+        -:   59:}
+        -:   60:
+        -:   61:template <class _Duration>
+        -:   62:inline _LIBCPP_HIDE_FROM_ABI void sleep_until(const chrono::time_point<chrono::steady_clock, _Duration>& __t) {
+        -:   63:  this_thread::sleep_for(__t - chrono::steady_clock::now());
+        -:   64:}
+        -:   65:
+        -:   66:inline _LIBCPP_HIDE_FROM_ABI void yield() _NOEXCEPT { __libcpp_thread_yield(); }
+        -:   67:
+        -:   68:} // namespace this_thread
+        -:   69:
+        -:   70:_LIBCPP_END_NAMESPACE_STD
+        -:   71:
+        -:   72:_LIBCPP_POP_MACROS
+        -:   73:
+        -:   74:#endif // _LIBCPP___THREAD_THIS_THREAD_H

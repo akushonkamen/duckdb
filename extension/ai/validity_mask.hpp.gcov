@@ -1,0 +1,493 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/src/include/duckdb/common/types/validity_mask.hpp
+        -:    0:Graph:../../build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:../../build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// duckdb/common/types/validity_mask.hpp
+        -:    5://
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#pragma once
+        -:   10:
+        -:   11:#include "duckdb/common/common.hpp"
+        -:   12:#include "duckdb/common/to_string.hpp"
+        -:   13:#include "duckdb/common/types.hpp"
+        -:   14:#include "duckdb/common/vector_size.hpp"
+        -:   15:
+        -:   16:namespace duckdb {
+        -:   17:struct SelectionVector;
+        -:   18:struct ValidityMask;
+        -:   19:
+        -:   20:template <typename V>
+        -:   21:struct TemplatedValidityData {
+        -:   22:	static constexpr const idx_t BITS_PER_VALUE = sizeof(V) * 8;
+        -:   23:	static constexpr const V MAX_ENTRY = V(~V(0));
+        -:   24:
+        -:   25:public:
+    #####:   26:	inline explicit TemplatedValidityData(idx_t count) {
+    #####:   27:		auto entry_count = EntryCount(count);
+    #####:   28:		owned_data = make_unsafe_uniq_array_uninitialized<V>(entry_count);
+    #####:   29:		for (idx_t entry_idx = 0; entry_idx < entry_count; entry_idx++) {
+    #####:   30:			owned_data[entry_idx] = MAX_ENTRY;
+    #####:   31:		}
+    #####:   32:	}
+        -:   33:	inline TemplatedValidityData(const V *validity_mask, idx_t count) {
+        -:   34:		D_ASSERT(validity_mask);
+        -:   35:		auto entry_count = EntryCount(count);
+        -:   36:		owned_data = make_unsafe_uniq_array_uninitialized<V>(entry_count);
+        -:   37:		for (idx_t entry_idx = 0; entry_idx < entry_count; entry_idx++) {
+        -:   38:			owned_data[entry_idx] = validity_mask[entry_idx];
+        -:   39:		}
+        -:   40:	}
+        -:   41:
+        -:   42:	unsafe_unique_array<V> owned_data;
+        -:   43:
+        -:   44:public:
+    #####:   45:	static inline idx_t EntryCount(idx_t count) {
+    #####:   46:		return (count + (BITS_PER_VALUE - 1)) / BITS_PER_VALUE;
+        -:   47:	}
+        -:   48:};
+        -:   49:
+        -:   50:using validity_t = uint64_t;
+        -:   51:
+        -:   52:struct ValidityData : TemplatedValidityData<validity_t> {
+        -:   53:public:
+        -:   54:	DUCKDB_API explicit ValidityData(idx_t count);
+        -:   55:	DUCKDB_API ValidityData(const ValidityMask &original, idx_t count);
+        -:   56:};
+        -:   57:
+        -:   58://! Type used for validity masks
+        -:   59:template <typename V>
+        -:   60:struct TemplatedValidityMask {
+        -:   61:	using ValidityBuffer = TemplatedValidityData<V>;
+        -:   62:
+        -:   63:public:
+        -:   64:	static constexpr const idx_t BITS_PER_VALUE = ValidityBuffer::BITS_PER_VALUE;
+        -:   65:	static constexpr const idx_t STANDARD_ENTRY_COUNT = (STANDARD_VECTOR_SIZE + (BITS_PER_VALUE - 1)) / BITS_PER_VALUE;
+        -:   66:	static constexpr const idx_t STANDARD_MASK_SIZE = STANDARD_ENTRY_COUNT * sizeof(V);
+        -:   67:
+        -:   68:public:
+        -:   69:	inline TemplatedValidityMask() : validity_mask(nullptr), capacity(STANDARD_VECTOR_SIZE) {
+        -:   70:	}
+        -:   71:	inline explicit TemplatedValidityMask(idx_t target_count) : validity_mask(nullptr), capacity(target_count) {
+        -:   72:	}
+        -:   73:	inline explicit TemplatedValidityMask(V *ptr, idx_t capacity) : validity_mask(ptr), capacity(capacity) {
+        -:   74:	}
+        -:   75:	inline TemplatedValidityMask(const TemplatedValidityMask &original, idx_t count) {
+        -:   76:		Copy(original, count);
+        -:   77:	}
+        -:   78:
+        -:   79:	static inline idx_t ValidityMaskSize(idx_t count = STANDARD_VECTOR_SIZE) {
+        -:   80:		return ValidityBuffer::EntryCount(count) * sizeof(V);
+        -:   81:	}
+    #####:   82:	inline bool AllValid() const {
+    #####:   83:		return !validity_mask;
+        -:   84:	}
+        -:   85:	inline bool CheckAllValid(idx_t count) const {
+        -:   86:		return CountValid(count) == count;
+        -:   87:	}
+        -:   88:	inline bool CheckAllInvalid(idx_t count) const {
+        -:   89:		return CountValid(count) == 0;
+        -:   90:	}
+        -:   91:
+        -:   92:	inline bool CheckAllValid(idx_t to, idx_t from) const {
+        -:   93:		if (AllValid()) {
+        -:   94:			return true;
+        -:   95:		}
+        -:   96:		for (idx_t i = from; i < to; i++) {
+        -:   97:			if (!RowIsValid(i)) {
+        -:   98:				return false;
+        -:   99:			}
+        -:  100:		}
+        -:  101:		return true;
+        -:  102:	}
+        -:  103:
+        -:  104:	idx_t CountValid(const idx_t count) const {
+        -:  105:		if (AllValid() || count == 0) {
+        -:  106:			return count;
+        -:  107:		}
+        -:  108:
+        -:  109:		idx_t valid = 0;
+        -:  110:		const auto entry_count = EntryCount(count);
+        -:  111:		for (idx_t entry_idx = 0; entry_idx < entry_count;) {
+        -:  112:			auto entry = GetValidityEntry(entry_idx++);
+        -:  113:			// Handle ragged end (if not exactly multiple of BITS_PER_VALUE)
+        -:  114:			if (entry_idx == entry_count && count % BITS_PER_VALUE != 0) {
+        -:  115:				const auto shift = BITS_PER_VALUE - (count % BITS_PER_VALUE);
+        -:  116:				const auto mask = ValidityBuffer::MAX_ENTRY >> shift;
+        -:  117:				entry &= mask;
+        -:  118:			} else if (AllValid(entry)) {
+        -:  119:				// Handle all set
+        -:  120:				valid += BITS_PER_VALUE;
+        -:  121:				continue;
+        -:  122:			}
+        -:  123:
+        -:  124:			// Count partial entry (Kernighan's algorithm)
+        -:  125:			while (entry) {
+        -:  126:				entry &= (entry - 1);
+        -:  127:				++valid;
+        -:  128:			}
+        -:  129:		}
+        -:  130:
+        -:  131:		return valid;
+        -:  132:	}
+        -:  133:
+        -:  134:	inline V *GetData() const {
+        -:  135:		return validity_mask;
+        -:  136:	}
+        -:  137:	inline void Reset(idx_t target_count_p = STANDARD_VECTOR_SIZE) {
+        -:  138:		validity_mask = nullptr;
+        -:  139:		validity_data.reset();
+        -:  140:		capacity = target_count_p;
+        -:  141:	}
+        -:  142:
+        -:  143:	static inline idx_t EntryCount(idx_t count) {
+        -:  144:		return ValidityBuffer::EntryCount(count);
+        -:  145:	}
+        -:  146:	inline V GetValidityEntry(idx_t entry_idx) const {
+        -:  147:		if (!validity_mask) {
+        -:  148:			return ValidityBuffer::MAX_ENTRY;
+        -:  149:		}
+        -:  150:		return GetValidityEntryUnsafe(entry_idx);
+        -:  151:	}
+    #####:  152:	inline V &GetValidityEntryUnsafe(idx_t entry_idx) const {
+    #####:  153:		return validity_mask[entry_idx];
+        -:  154:	}
+        -:  155:	static inline bool AllValid(V entry) {
+        -:  156:		// Check if all the tuples that are covered by this entry (usually 64) are valid
+        -:  157:		return entry == ValidityBuffer::MAX_ENTRY;
+        -:  158:	}
+        -:  159:	static inline bool NoneValid(V entry) {
+        -:  160:		return entry == 0;
+        -:  161:	}
+    #####:  162:	static inline bool RowIsValid(const V &entry, const idx_t &idx_in_entry) {
+    #####:  163:		return entry & (V(1) << V(idx_in_entry));
+        -:  164:	}
+    #####:  165:	static inline void GetEntryIndex(idx_t row_idx, idx_t &entry_idx, idx_t &idx_in_entry) {
+    #####:  166:		entry_idx = row_idx / BITS_PER_VALUE;
+    #####:  167:		idx_in_entry = row_idx % BITS_PER_VALUE;
+    #####:  168:	}
+        -:  169:	//! Get an entry that has first-n bits set as valid and rest set as invalid
+        -:  170:	static inline V EntryWithValidBits(idx_t n) {
+        -:  171:		if (n == 0) {
+        -:  172:			return V(0);
+        -:  173:		}
+        -:  174:		return ValidityBuffer::MAX_ENTRY >> (BITS_PER_VALUE - n);
+        -:  175:	}
+        -:  176:	static inline idx_t SizeInBytes(idx_t n) {
+        -:  177:		return (n + BITS_PER_VALUE - 1) / BITS_PER_VALUE;
+        -:  178:	}
+        -:  179:
+        -:  180:	//! RowIsValidUnsafe should only be used if AllValid() is false: it achieves the same as RowIsValid but skips a
+        -:  181:	//! not-null check
+    #####:  182:	inline bool RowIsValidUnsafe(idx_t row_idx) const {
+    #####:  183:		D_ASSERT(validity_mask);
+        -:  184:		idx_t entry_idx, idx_in_entry;
+    #####:  185:		GetEntryIndex(row_idx, entry_idx, idx_in_entry);
+    #####:  186:		auto entry = GetValidityEntryUnsafe(entry_idx);
+    #####:  187:		return RowIsValid(entry, idx_in_entry);
+        -:  188:	}
+        -:  189:
+        -:  190:	//! Returns true if a row is valid (i.e. not null), false otherwise
+       66:  191:	inline bool RowIsValid(idx_t row_idx) const {
+        -:  192:#ifdef DEBUG
+        -:  193:		if (row_idx >= capacity) {
+        -:  194:			throw InternalException("ValidityMask::RowIsValid - row_idx %d is out-of-range for mask with capacity %llu",
+        -:  195:			                        row_idx, capacity);
+        -:  196:		}
+        -:  197:#endif
+       66:  198:		if (!validity_mask) {
+       66:  199:			return true;
+        -:  200:		}
+    #####:  201:		return RowIsValidUnsafe(row_idx);
+       66:  202:	}
+        -:  203:
+        -:  204:	//! Same as SetValid, but skips a null check on validity_mask
+        -:  205:	inline void SetValidUnsafe(idx_t row_idx) {
+        -:  206:		D_ASSERT(validity_mask);
+        -:  207:		idx_t entry_idx, idx_in_entry;
+        -:  208:		GetEntryIndex(row_idx, entry_idx, idx_in_entry);
+        -:  209:		validity_mask[entry_idx] |= (V(1) << V(idx_in_entry));
+        -:  210:	}
+        -:  211:
+        -:  212:	//! Marks the entry at the specified row index as valid (i.e. not-null)
+        -:  213:	inline void SetValid(idx_t row_idx) {
+        -:  214:#ifdef DEBUG
+        -:  215:		if (row_idx >= capacity) {
+        -:  216:			throw InternalException("ValidityMask::SetValid - row_idx %d is out-of-range for mask with capacity %llu",
+        -:  217:			                        row_idx, capacity);
+        -:  218:		}
+        -:  219:#endif
+        -:  220:		if (!validity_mask) {
+        -:  221:			// if AllValid() we don't need to do anything
+        -:  222:			// the row is already valid
+        -:  223:			return;
+        -:  224:		}
+        -:  225:		SetValidUnsafe(row_idx);
+        -:  226:	}
+        -:  227:
+        -:  228:	//! Marks the bit at the specified entry as invalid (i.e. null)
+    #####:  229:	inline void SetInvalidUnsafe(idx_t entry_idx, idx_t idx_in_entry) {
+    #####:  230:		D_ASSERT(validity_mask);
+    #####:  231:		validity_mask[entry_idx] &= ~(V(1) << V(idx_in_entry));
+    #####:  232:	}
+        -:  233:
+        -:  234:	//! Marks the bit at the specified row index as invalid (i.e. null)
+    #####:  235:	inline void SetInvalidUnsafe(idx_t row_idx) {
+        -:  236:		idx_t entry_idx, idx_in_entry;
+    #####:  237:		GetEntryIndex(row_idx, entry_idx, idx_in_entry);
+    #####:  238:		SetInvalidUnsafe(entry_idx, idx_in_entry);
+    #####:  239:	}
+        -:  240:
+        -:  241:	//! Marks the entry at the specified row index as invalid (i.e. null)
+    #####:  242:	inline void SetInvalid(idx_t row_idx) {
+        -:  243:#ifdef DEBUG
+        -:  244:		if (row_idx >= capacity) {
+        -:  245:			throw InternalException("ValidityMask::SetInvalid - row_idx %d is out-of-range for mask with capacity %llu",
+        -:  246:			                        row_idx, capacity);
+        -:  247:		}
+        -:  248:#endif
+    #####:  249:		if (!validity_mask) {
+    #####:  250:			Initialize(capacity);
+    #####:  251:		}
+    #####:  252:		SetInvalidUnsafe(row_idx);
+    #####:  253:	}
+        -:  254:
+        -:  255:	//! Mark the entry at the specified index as either valid or invalid (non-null or null)
+        -:  256:	inline void Set(idx_t row_idx, bool valid) {
+        -:  257:		if (valid) {
+        -:  258:			SetValid(row_idx);
+        -:  259:		} else {
+        -:  260:			SetInvalid(row_idx);
+        -:  261:		}
+        -:  262:	}
+        -:  263:
+        -:  264:	//! Ensure the validity mask is writable, allocating space if it is not initialized
+        -:  265:	inline void EnsureWritable() {
+        -:  266:		if (!validity_mask) {
+        -:  267:			Initialize();
+        -:  268:		}
+        -:  269:	}
+        -:  270:
+        -:  271:	//! Marks a range of entries in the validity mask as invalid (null)
+        -:  272:	//! This is useful for initialising large masks in parallel.
+        -:  273:	inline void SetRangeInvalid(const idx_t count, const idx_t begin_entry, const idx_t end_entry) {
+        -:  274:		EnsureWritable();
+        -:  275:		if (count == 0) {
+        -:  276:			return;
+        -:  277:		}
+        -:  278:		const auto last_entry_index = ValidityBuffer::EntryCount(count) - 1;
+        -:  279:		for (idx_t i = begin_entry; i < MinValue(last_entry_index, end_entry); i++) {
+        -:  280:			validity_mask[i] = 0;
+        -:  281:		}
+        -:  282:		if (end_entry <= last_entry_index) {
+        -:  283:			return;
+        -:  284:		}
+        -:  285:		const auto last_entry_bits = count % BITS_PER_VALUE;
+        -:  286:		validity_mask[last_entry_index] =
+        -:  287:		    (last_entry_bits == 0) ? 0 : static_cast<V>(ValidityBuffer::MAX_ENTRY << (last_entry_bits));
+        -:  288:	}
+        -:  289:
+        -:  290:	//! Marks exactly "count" bits in the validity mask as invalid (null)
+        -:  291:	inline void SetAllInvalid(idx_t count) {
+        -:  292:		SetRangeInvalid(count, 0, EntryCount(count));
+        -:  293:	}
+        -:  294:
+        -:  295:	//! Marks exactly "count" bits in the validity mask as valid (not null)
+        -:  296:	inline void SetAllValid(idx_t count) {
+        -:  297:		EnsureWritable();
+        -:  298:		if (count == 0) {
+        -:  299:			return;
+        -:  300:		}
+        -:  301:		auto last_entry_index = ValidityBuffer::EntryCount(count) - 1;
+        -:  302:		for (idx_t i = 0; i < last_entry_index; i++) {
+        -:  303:			validity_mask[i] = ValidityBuffer::MAX_ENTRY;
+        -:  304:		}
+        -:  305:		auto last_entry_bits = count % BITS_PER_VALUE;
+        -:  306:		validity_mask[last_entry_index] |= (last_entry_bits == 0)
+        -:  307:		                                       ? ValidityBuffer::MAX_ENTRY
+        -:  308:		                                       : ~static_cast<V>(ValidityBuffer::MAX_ENTRY << (last_entry_bits));
+        -:  309:	}
+        -:  310:
+        -:  311:	inline bool IsMaskSet() const {
+        -:  312:		if (validity_mask) {
+        -:  313:			return true;
+        -:  314:		}
+        -:  315:		return false;
+        -:  316:	}
+        -:  317:
+        -:  318:public:
+        -:  319:	inline void Initialize(validity_t *validity, idx_t new_capacity) {
+        -:  320:		validity_data.reset();
+        -:  321:		validity_mask = validity;
+        -:  322:		capacity = new_capacity;
+        -:  323:	}
+        -:  324:	inline void Initialize(const TemplatedValidityMask &other) {
+        -:  325:		validity_mask = other.validity_mask;
+        -:  326:		validity_data = other.validity_data;
+        -:  327:		capacity = other.capacity;
+        -:  328:	}
+    #####:  329:	inline void Initialize(idx_t count) {
+    #####:  330:		capacity = count;
+    #####:  331:		validity_data = make_buffer<ValidityBuffer>(count);
+    #####:  332:		validity_mask = validity_data->owned_data.get();
+    #####:  333:	}
+        -:  334:	inline void Initialize() {
+        -:  335:		Initialize(capacity);
+        -:  336:	}
+        -:  337:	inline void Copy(const TemplatedValidityMask &other, idx_t count) {
+        -:  338:		capacity = count;
+        -:  339:		if (other.AllValid()) {
+        -:  340:			validity_data = nullptr;
+        -:  341:			validity_mask = nullptr;
+        -:  342:		} else {
+        -:  343:			validity_data = make_buffer<ValidityBuffer>(other.validity_mask, count);
+        -:  344:			validity_mask = validity_data->owned_data.get();
+        -:  345:		}
+        -:  346:	}
+        -:  347:
+        -:  348:protected:
+        -:  349:	V *validity_mask;
+        -:  350:	buffer_ptr<ValidityBuffer> validity_data;
+        -:  351:	idx_t capacity;
+        -:  352:};
+        -:  353:
+        -:  354:struct ValidityMask : public TemplatedValidityMask<validity_t> {
+        -:  355:public:
+        -:  356:	inline ValidityMask() : TemplatedValidityMask(nullptr, STANDARD_VECTOR_SIZE) {
+        -:  357:	}
+        -:  358:	inline explicit ValidityMask(idx_t capacity) : TemplatedValidityMask(capacity) {
+        -:  359:	}
+        -:  360:	inline explicit ValidityMask(validity_t *ptr, idx_t capacity) : TemplatedValidityMask(ptr, capacity) {
+        -:  361:	}
+        -:  362:	inline ValidityMask(const ValidityMask &original, idx_t count) : TemplatedValidityMask(original, count) {
+        -:  363:	}
+        -:  364:
+        -:  365:public:
+        -:  366:	DUCKDB_API void Resize(idx_t new_size);
+        -:  367:	DUCKDB_API idx_t Capacity() const;
+        -:  368:	DUCKDB_API void SliceInPlace(const ValidityMask &other, idx_t target_offset, idx_t source_offset, idx_t count);
+        -:  369:	DUCKDB_API void Slice(const ValidityMask &other, idx_t source_offset, idx_t count);
+        -:  370:	DUCKDB_API void CopySel(const ValidityMask &other, const SelectionVector &sel, idx_t source_offset,
+        -:  371:	                        idx_t target_offset, idx_t count);
+        -:  372:	DUCKDB_API void Combine(const ValidityMask &other, idx_t count);
+        -:  373:	DUCKDB_API string ToString(idx_t count) const;
+        -:  374:	DUCKDB_API string ToString() const;
+        -:  375:
+        -:  376:	DUCKDB_API static bool IsAligned(idx_t count);
+        -:  377:
+        -:  378:	void Write(WriteStream &writer, idx_t count);
+        -:  379:	void Read(ReadStream &reader, idx_t count);
+        -:  380:};
+        -:  381:
+        -:  382://===--------------------------------------------------------------------===//
+        -:  383:// ValidityArray
+        -:  384://===--------------------------------------------------------------------===//
+        -:  385:struct ValidityArray {
+        -:  386:	inline ValidityArray() {
+        -:  387:	}
+        -:  388:
+        -:  389:	inline bool AllValid() const {
+        -:  390:		return !validity_mask;
+        -:  391:	}
+        -:  392:
+        -:  393:	inline void Initialize(idx_t count, bool initial = true) {
+        -:  394:		capacity = count;
+        -:  395:		validity_data = make_unsafe_uniq_array<bool>(count);
+        -:  396:		validity_mask = validity_data.get();
+        -:  397:		memset(validity_mask, initial, sizeof(bool) * count);
+        -:  398:	}
+        -:  399:	inline void InitializeEmpty(idx_t count) {
+        -:  400:		capacity = count;
+        -:  401:	}
+        -:  402:
+        -:  403:	idx_t Capacity() const {
+        -:  404:		return capacity;
+        -:  405:	}
+        -:  406:
+        -:  407:	//! RowIsValidUnsafe should only be used if AllValid() is false: it achieves the same as RowIsValid but skips a
+        -:  408:	//! not-null check
+        -:  409:	inline bool RowIsValidUnsafe(idx_t row_idx) const {
+        -:  410:		D_ASSERT(validity_mask);
+        -:  411:		return validity_mask[row_idx];
+        -:  412:	}
+        -:  413:
+        -:  414:	//! Returns true if a row is valid (i.e. not null), false otherwise
+        -:  415:	inline bool RowIsValid(idx_t row_idx) const {
+        -:  416:#ifdef DEBUG
+        -:  417:		if (row_idx >= capacity) {
+        -:  418:			throw InternalException("ValidityData::RowIsValid - row_idx %d is out-of-range for mask with capacity %llu",
+        -:  419:			                        row_idx, capacity);
+        -:  420:		}
+        -:  421:#endif
+        -:  422:		if (!validity_mask) {
+        -:  423:			return true;
+        -:  424:		}
+        -:  425:		return RowIsValidUnsafe(row_idx);
+        -:  426:	}
+        -:  427:
+        -:  428:	//! Same as SetValid, but skips a null check on validity_mask
+        -:  429:	inline void SetValidUnsafe(idx_t row_idx) {
+        -:  430:		D_ASSERT(validity_mask);
+        -:  431:		validity_mask[row_idx] = true;
+        -:  432:	}
+        -:  433:
+        -:  434:	//! Marks the entry at the specified row index as valid (i.e. not-null)
+        -:  435:	inline void SetValid(idx_t row_idx) {
+        -:  436:#ifdef DEBUG
+        -:  437:		if (row_idx >= capacity) {
+        -:  438:			throw InternalException("ValidityData::SetValid - row_idx %d is out-of-range for mask with capacity %llu",
+        -:  439:			                        row_idx, capacity);
+        -:  440:		}
+        -:  441:#endif
+        -:  442:		if (!validity_mask) {
+        -:  443:			// if AllValid() we don't need to do anything
+        -:  444:			// the row is already valid
+        -:  445:			return;
+        -:  446:		}
+        -:  447:
+        -:  448:		SetValidUnsafe(row_idx);
+        -:  449:	}
+        -:  450:
+        -:  451:	inline void Pack(ValidityMask &mask, const idx_t count) const {
+        -:  452:		if (AllValid()) {
+        -:  453:			mask.Reset(count);
+        -:  454:			return;
+        -:  455:		}
+        -:  456:		mask.Initialize(count);
+        -:  457:
+        -:  458:		const auto entire_entries = count / ValidityMask::BITS_PER_VALUE;
+        -:  459:		const auto ragged = count % ValidityMask::BITS_PER_VALUE;
+        -:  460:		auto bits = mask.GetData();
+        -:  461:		idx_t row_idx = 0;
+        -:  462:		for (idx_t i = 0; i < entire_entries; ++i) {
+        -:  463:			validity_t entry = 0;
+        -:  464:			for (idx_t j = 0; j < ValidityMask::BITS_PER_VALUE; ++j) {
+        -:  465:				if (RowIsValidUnsafe(row_idx++)) {
+        -:  466:					entry |= validity_t(1) << j;
+        -:  467:				}
+        -:  468:			}
+        -:  469:			*bits++ = entry;
+        -:  470:		}
+        -:  471:		if (ragged) {
+        -:  472:			validity_t entry = 0;
+        -:  473:			for (idx_t j = 0; j < ragged; ++j) {
+        -:  474:				if (RowIsValidUnsafe(row_idx++)) {
+        -:  475:					entry |= validity_t(1) << j;
+        -:  476:				}
+        -:  477:			}
+        -:  478:			*bits++ = entry;
+        -:  479:		}
+        -:  480:	}
+        -:  481:
+        -:  482:private:
+        -:  483:	bool *validity_mask = nullptr;
+        -:  484:	unsafe_unique_array<bool> validity_data;
+        -:  485:	idx_t capacity = 0;
+        -:  486:};
+        -:  487:
+        -:  488:} // namespace duckdb

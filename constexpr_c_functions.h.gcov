@@ -1,0 +1,241 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__string/constexpr_c_functions.h
+        -:    0:Graph:build/test/extension/ai.duckdb_extension-ai_extension.gcno
+        -:    0:Data:build/test/extension/ai.duckdb_extension-ai_extension.gcda
+        -:    0:Runs:5
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://
+        -:    3:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    4:// See https://llvm.org/LICENSE.txt for license information.
+        -:    5:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#ifndef _LIBCPP___STRING_CONSTEXPR_C_FUNCTIONS_H
+        -:   10:#define _LIBCPP___STRING_CONSTEXPR_C_FUNCTIONS_H
+        -:   11:
+        -:   12:#include <__config>
+        -:   13:#include <__memory/addressof.h>
+        -:   14:#include <__memory/construct_at.h>
+        -:   15:#include <__type_traits/datasizeof.h>
+        -:   16:#include <__type_traits/enable_if.h>
+        -:   17:#include <__type_traits/is_always_bitcastable.h>
+        -:   18:#include <__type_traits/is_assignable.h>
+        -:   19:#include <__type_traits/is_constant_evaluated.h>
+        -:   20:#include <__type_traits/is_constructible.h>
+        -:   21:#include <__type_traits/is_equality_comparable.h>
+        -:   22:#include <__type_traits/is_integral.h>
+        -:   23:#include <__type_traits/is_same.h>
+        -:   24:#include <__type_traits/is_trivially_copyable.h>
+        -:   25:#include <__type_traits/is_trivially_lexicographically_comparable.h>
+        -:   26:#include <__type_traits/remove_cv.h>
+        -:   27:#include <__utility/is_pointer_in_range.h>
+        -:   28:#include <cstddef>
+        -:   29:
+        -:   30:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   31:#  pragma GCC system_header
+        -:   32:#endif
+        -:   33:
+        -:   34:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   35:
+        -:   36:// Type used to encode that a function takes an integer that represents a number
+        -:   37:// of elements as opposed to a number of bytes.
+        -:   38:enum class __element_count : size_t {};
+        -:   39:
+        -:   40:template <class _Tp>
+        -:   41:inline const bool __is_char_type = false;
+        -:   42:
+        -:   43:template <>
+        -:   44:inline const bool __is_char_type<char> = true;
+        -:   45:
+        -:   46:#ifndef _LIBCPP_HAS_NO_CHAR8_T
+        -:   47:template <>
+        -:   48:inline const bool __is_char_type<char8_t> = true;
+        -:   49:#endif
+        -:   50:
+        -:   51:template <class _Tp>
+      147:   52:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 size_t __constexpr_strlen(const _Tp* __str) _NOEXCEPT {
+        -:   53:  static_assert(__is_char_type<_Tp>, "__constexpr_strlen only works with char and char8_t");
+        -:   54:  // GCC currently doesn't support __builtin_strlen for heap-allocated memory during constant evaluation.
+        -:   55:  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70816
+        -:   56:  if (__libcpp_is_constant_evaluated()) {
+        -:   57:#if _LIBCPP_STD_VER >= 17 && defined(_LIBCPP_COMPILER_CLANG_BASED)
+        -:   58:    if constexpr (is_same_v<_Tp, char>)
+        -:   59:      return __builtin_strlen(__str);
+        -:   60:#endif
+        -:   61:    size_t __i = 0;
+        -:   62:    for (; __str[__i] != '\0'; ++__i)
+        -:   63:      ;
+        -:   64:    return __i;
+        -:   65:  }
+      147:   66:  return __builtin_strlen(reinterpret_cast<const char*>(__str));
+        -:   67:}
+        -:   68:
+        -:   69:// Because of __libcpp_is_trivially_lexicographically_comparable we know that comparing the object representations is
+        -:   70:// equivalent to a std::memcmp. Since we have multiple objects contiguously in memory, we can call memcmp once instead
+        -:   71:// of invoking it on every object individually.
+        -:   72:template <class _Tp, class _Up>
+        -:   73:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 int
+        -:   74:__constexpr_memcmp(const _Tp* __lhs, const _Up* __rhs, __element_count __n) {
+        -:   75:  static_assert(__libcpp_is_trivially_lexicographically_comparable<_Tp, _Up>::value,
+        -:   76:                "_Tp and _Up have to be trivially lexicographically comparable");
+        -:   77:
+        -:   78:  auto __count = static_cast<size_t>(__n);
+        -:   79:
+        -:   80:  if (__libcpp_is_constant_evaluated()) {
+        -:   81:#ifdef _LIBCPP_COMPILER_CLANG_BASED
+        -:   82:    if (sizeof(_Tp) == 1 && !is_same<_Tp, bool>::value)
+        -:   83:      return __builtin_memcmp(__lhs, __rhs, __count * sizeof(_Tp));
+        -:   84:#endif
+        -:   85:
+        -:   86:    while (__count != 0) {
+        -:   87:      if (*__lhs < *__rhs)
+        -:   88:        return -1;
+        -:   89:      if (*__rhs < *__lhs)
+        -:   90:        return 1;
+        -:   91:
+        -:   92:      --__count;
+        -:   93:      ++__lhs;
+        -:   94:      ++__rhs;
+        -:   95:    }
+        -:   96:    return 0;
+        -:   97:  } else {
+        -:   98:    return __builtin_memcmp(__lhs, __rhs, __count * sizeof(_Tp));
+        -:   99:  }
+        -:  100:}
+        -:  101:
+        -:  102:// Because of __libcpp_is_trivially_equality_comparable we know that comparing the object representations is equivalent
+        -:  103:// to a std::memcmp(...) == 0. Since we have multiple objects contiguously in memory, we can call memcmp once instead
+        -:  104:// of invoking it on every object individually.
+        -:  105:template <class _Tp, class _Up>
+        -:  106:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 bool
+        -:  107:__constexpr_memcmp_equal(const _Tp* __lhs, const _Up* __rhs, __element_count __n) {
+        -:  108:  static_assert(__libcpp_is_trivially_equality_comparable<_Tp, _Up>::value,
+        -:  109:                "_Tp and _Up have to be trivially equality comparable");
+        -:  110:
+        -:  111:  auto __count = static_cast<size_t>(__n);
+        -:  112:
+        -:  113:  if (__libcpp_is_constant_evaluated()) {
+        -:  114:#ifdef _LIBCPP_COMPILER_CLANG_BASED
+        -:  115:    if (sizeof(_Tp) == 1 && is_integral<_Tp>::value && !is_same<_Tp, bool>::value)
+        -:  116:      return __builtin_memcmp(__lhs, __rhs, __count * sizeof(_Tp)) == 0;
+        -:  117:#endif
+        -:  118:    while (__count != 0) {
+        -:  119:      if (*__lhs != *__rhs)
+        -:  120:        return false;
+        -:  121:
+        -:  122:      --__count;
+        -:  123:      ++__lhs;
+        -:  124:      ++__rhs;
+        -:  125:    }
+        -:  126:    return true;
+        -:  127:  } else {
+        -:  128:    return ::__builtin_memcmp(__lhs, __rhs, __count * sizeof(_Tp)) == 0;
+        -:  129:  }
+        -:  130:}
+        -:  131:
+        -:  132:template <class _Tp, class _Up>
+        -:  133:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 _Tp* __constexpr_memchr(_Tp* __str, _Up __value, size_t __count) {
+        -:  134:  static_assert(sizeof(_Tp) == 1 && __libcpp_is_trivially_equality_comparable<_Tp, _Up>::value,
+        -:  135:                "Calling memchr on non-trivially equality comparable types is unsafe.");
+        -:  136:
+        -:  137:  if (__libcpp_is_constant_evaluated()) {
+        -:  138:// use __builtin_char_memchr to optimize constexpr evaluation if we can
+        -:  139:#if _LIBCPP_STD_VER >= 17 && __has_builtin(__builtin_char_memchr)
+        -:  140:    if constexpr (is_same_v<remove_cv_t<_Tp>, char> && is_same_v<remove_cv_t<_Up>, char>)
+        -:  141:      return __builtin_char_memchr(__str, __value, __count);
+        -:  142:#endif
+        -:  143:
+        -:  144:    for (; __count; --__count) {
+        -:  145:      if (*__str == __value)
+        -:  146:        return __str;
+        -:  147:      ++__str;
+        -:  148:    }
+        -:  149:    return nullptr;
+        -:  150:  } else {
+        -:  151:    char __value_buffer = 0;
+        -:  152:    __builtin_memcpy(&__value_buffer, &__value, sizeof(char));
+        -:  153:    return static_cast<_Tp*>(__builtin_memchr(__str, __value_buffer, __count));
+        -:  154:  }
+        -:  155:}
+        -:  156:
+        -:  157:// This function performs an assignment to an existing, already alive TriviallyCopyable object
+        -:  158:// from another TriviallyCopyable object.
+        -:  159://
+        -:  160:// It basically works around the fact that TriviallyCopyable objects are not required to be
+        -:  161:// syntactically copy/move constructible or copy/move assignable. Technically, only one of the
+        -:  162:// four operations is required to be syntactically valid -- but at least one definitely has to
+        -:  163:// be valid.
+        -:  164://
+        -:  165:// This is necessary in order to implement __constexpr_memmove below in a way that mirrors as
+        -:  166:// closely as possible what the compiler's __builtin_memmove is able to do.
+        -:  167:template <class _Tp, class _Up, __enable_if_t<is_assignable<_Tp&, _Up const&>::value, int> = 0>
+        -:  168:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 _Tp& __assign_trivially_copyable(_Tp& __dest, _Up const& __src) {
+        -:  169:  __dest = __src;
+        -:  170:  return __dest;
+        -:  171:}
+        -:  172:
+        -:  173:// clang-format off
+        -:  174:template <class _Tp, class _Up, __enable_if_t<!is_assignable<_Tp&, _Up const&>::value &&
+        -:  175:                                               is_assignable<_Tp&, _Up&&>::value, int> = 0>
+        -:  176:// clang-format on
+        -:  177:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 _Tp& __assign_trivially_copyable(_Tp& __dest, _Up& __src) {
+        -:  178:  __dest =
+        -:  179:      static_cast<_Up&&>(__src); // this is safe, we're not actually moving anything since the assignment is trivial
+        -:  180:  return __dest;
+        -:  181:}
+        -:  182:
+        -:  183:// clang-format off
+        -:  184:template <class _Tp, class _Up, __enable_if_t<!is_assignable<_Tp&, _Up const&>::value &&
+        -:  185:                                              !is_assignable<_Tp&, _Up&&>::value &&
+        -:  186:                                               is_constructible<_Tp, _Up const&>::value, int> = 0>
+        -:  187:// clang-format on
+        -:  188:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _Tp& __assign_trivially_copyable(_Tp& __dest, _Up const& __src) {
+        -:  189:  // _Tp is trivially destructible, so we don't need to call its destructor to end the lifetime of the object
+        -:  190:  // that was there previously
+        -:  191:  std::__construct_at(std::addressof(__dest), __src);
+        -:  192:  return __dest;
+        -:  193:}
+        -:  194:
+        -:  195:// clang-format off
+        -:  196:template <class _Tp, class _Up, __enable_if_t<!is_assignable<_Tp&, _Up const&>::value &&
+        -:  197:                                              !is_assignable<_Tp&, _Up&&>::value &&
+        -:  198:                                              !is_constructible<_Tp, _Up const&>::value &&
+        -:  199:                                               is_constructible<_Tp, _Up&&>::value, int> = 0>
+        -:  200:// clang-format on
+        -:  201:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 _Tp& __assign_trivially_copyable(_Tp& __dest, _Up& __src) {
+        -:  202:  // _Tp is trivially destructible, so we don't need to call its destructor to end the lifetime of the object
+        -:  203:  // that was there previously
+        -:  204:  std::__construct_at(
+        -:  205:      std::addressof(__dest),
+        -:  206:      static_cast<_Up&&>(__src)); // this is safe, we're not actually moving anything since the constructor is trivial
+        -:  207:  return __dest;
+        -:  208:}
+        -:  209:
+        -:  210:template <class _Tp, class _Up, __enable_if_t<__is_always_bitcastable<_Up, _Tp>::value, int> = 0>
+        -:  211:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 _Tp*
+        -:  212:__constexpr_memmove(_Tp* __dest, _Up* __src, __element_count __n) {
+        -:  213:  size_t __count = static_cast<size_t>(__n);
+        -:  214:  if (__libcpp_is_constant_evaluated()) {
+        -:  215:#ifdef _LIBCPP_COMPILER_CLANG_BASED
+        -:  216:    if (is_same<__remove_cv_t<_Tp>, __remove_cv_t<_Up> >::value) {
+        -:  217:      ::__builtin_memmove(__dest, __src, __count * sizeof(_Tp));
+        -:  218:      return __dest;
+        -:  219:    }
+        -:  220:#endif
+        -:  221:    if (std::__is_pointer_in_range(__src, __src + __count, __dest)) {
+        -:  222:      for (; __count > 0; --__count)
+        -:  223:        std::__assign_trivially_copyable(__dest[__count - 1], __src[__count - 1]);
+        -:  224:    } else {
+        -:  225:      for (size_t __i = 0; __i != __count; ++__i)
+        -:  226:        std::__assign_trivially_copyable(__dest[__i], __src[__i]);
+        -:  227:    }
+        -:  228:  } else if (__count > 0) {
+        -:  229:    ::__builtin_memmove(__dest, __src, (__count - 1) * sizeof(_Tp) + __datasizeof_v<_Tp>);
+        -:  230:  }
+        -:  231:  return __dest;
+        -:  232:}
+        -:  233:
+        -:  234:_LIBCPP_END_NAMESPACE_STD
+        -:  235:
+        -:  236:#endif // _LIBCPP___STRING_CONSTEXPR_C_FUNCTIONS_H

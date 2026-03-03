@@ -1,0 +1,78 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/extension/ai/include/http_client_interface.hpp
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// http_client_interface.hpp - Abstract interfaces for dependency injection
+        -:    5://   Enables Google Mock testing for AI Filter functions
+        -:    6://===----------------------------------------------------------------------===//
+        -:    7:
+        -:    8:#pragma once
+        -:    9:
+        -:   10:#include <string>
+        -:   11:#include <memory>
+        -:   12:
+        -:   13:namespace duckdb {
+        -:   14:
+        -:   15:// ============================================================================
+        -:   16:// HTTP Client Interface
+        -:   17:// ============================================================================
+        -:   18:
+        -:   19:class IHTTPClient {
+        -:   20:public:
+        -:   21:	struct Response {
+        -:   22:		int status_code;
+        -:   23:		std::string body;
+        -:   24:	};
+        -:   25:
+        9:   26:	virtual ~IHTTPClient() = default;
+        -:   27:
+        -:   28:	// Execute HTTP POST request
+        -:   29:	// Returns response with status code and body
+        -:   30:	virtual Response Post(const std::string& url,
+        -:   31:	                     const std::string& body,
+        -:   32:	                     int timeout_sec) = 0;
+        -:   33:
+        -:   34:	// Execute command via popen (for backward compatibility)
+        -:   35:	// Returns the command output as a string
+        -:   36:	virtual std::string ExecuteCommand(const std::string& command) = 0;
+        -:   37:};
+        -:   38:
+        -:   39:// ============================================================================
+        -:   40:// System Clock Interface (for testing retry delays)
+        -:   41:// ============================================================================
+        -:   42:
+        -:   43:class ISystemClock {
+        -:   44:public:
+        9:   45:	virtual ~ISystemClock() = default;
+        -:   46:
+        -:   47:	// Sleep for specified milliseconds
+        -:   48:	virtual void SleepMs(int milliseconds) = 0;
+        -:   49:};
+        -:   50:
+        -:   51:// ============================================================================
+        -:   52:// Random Generator Interface (for testing jitter in retry logic)
+        -:   53:// ============================================================================
+        -:   54:
+        -:   55:class IRandomGenerator {
+        -:   56:public:
+        9:   57:	virtual ~IRandomGenerator() = default;
+        -:   58:
+        -:   59:	// Get random integer in range [min, max]
+        -:   60:	virtual int GetRandomInt(int min, int max) = 0;
+        -:   61:};
+        -:   62:
+        -:   63:// ============================================================================
+        -:   64:// Factory for creating real implementations
+        -:   65:// ============================================================================
+        -:   66:
+        -:   67:struct ComponentFactory {
+        -:   68:	static std::unique_ptr<IHTTPClient> CreateDefaultHTTPClient();
+        -:   69:	static std::unique_ptr<ISystemClock> CreateDefaultSystemClock();
+        -:   70:	static std::unique_ptr<IRandomGenerator> CreateDefaultRandomGenerator();
+        -:   71:};
+        -:   72:
+        -:   73:} // namespace duckdb

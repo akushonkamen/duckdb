@@ -1,0 +1,59 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/swap_allocator.h
+        -:    0:Graph:build/ai_executor_gtest-ai_filter_test.gcno
+        -:    0:Data:build/ai_executor_gtest-ai_filter_test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://
+        -:    3:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    4:// See https://llvm.org/LICENSE.txt for license information.
+        -:    5:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#ifndef _LIBCPP___MEMORY_SWAP_ALLOCATOR_H
+        -:   10:#define _LIBCPP___MEMORY_SWAP_ALLOCATOR_H
+        -:   11:
+        -:   12:#include <__config>
+        -:   13:#include <__memory/allocator_traits.h>
+        -:   14:#include <__type_traits/integral_constant.h>
+        -:   15:#include <__type_traits/is_swappable.h>
+        -:   16:#include <__utility/swap.h>
+        -:   17:
+        -:   18:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   19:#  pragma GCC system_header
+        -:   20:#endif
+        -:   21:
+        -:   22:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   23:
+        -:   24:template <typename _Alloc>
+        -:   25:_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 void __swap_allocator(_Alloc& __a1, _Alloc& __a2, true_type)
+        -:   26:#if _LIBCPP_STD_VER >= 14
+        -:   27:    _NOEXCEPT
+        -:   28:#else
+        -:   29:    _NOEXCEPT_(__is_nothrow_swappable_v<_Alloc>)
+        -:   30:#endif
+        -:   31:{
+        -:   32:  using std::swap;
+        -:   33:  swap(__a1, __a2);
+        -:   34:}
+        -:   35:
+        -:   36:template <typename _Alloc>
+        -:   37:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 void
+       36:   38:__swap_allocator(_Alloc&, _Alloc&, false_type) _NOEXCEPT {}
+        -:   39:
+        -:   40:template <typename _Alloc>
+        -:   41:inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX14 void __swap_allocator(_Alloc& __a1, _Alloc& __a2)
+        -:   42:#if _LIBCPP_STD_VER >= 14
+        -:   43:    _NOEXCEPT
+        -:   44:#else
+        -:   45:    _NOEXCEPT_(__is_nothrow_swappable_v<_Alloc>)
+        -:   46:#endif
+        -:   47:{
+        -:   48:  std::__swap_allocator(
+        -:   49:      __a1, __a2, integral_constant<bool, allocator_traits<_Alloc>::propagate_on_container_swap::value>());
+        -:   50:}
+        -:   51:
+        -:   52:_LIBCPP_END_NAMESPACE_STD
+        -:   53:
+        -:   54:#endif // _LIBCPP___MEMORY_SWAP_ALLOCATOR_H

@@ -1,0 +1,610 @@
+        -:    0:Source:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/src/include/duckdb/common/types.hpp
+        -:    0:Graph:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1://===----------------------------------------------------------------------===//
+        -:    2://                         DuckDB
+        -:    3://
+        -:    4:// duckdb/common/types.hpp
+        -:    5://
+        -:    6://
+        -:    7://===----------------------------------------------------------------------===//
+        -:    8:
+        -:    9:#pragma once
+        -:   10:
+        -:   11:#include "duckdb/common/constants.hpp"
+        -:   12:#include "duckdb/common/optional_ptr.hpp"
+        -:   13:#include "duckdb/common/vector.hpp"
+        -:   14:#include "duckdb/common/helper.hpp"
+        -:   15:
+        -:   16:
+        -:   17:namespace duckdb {
+        -:   18:
+        -:   19:class Serializer;
+        -:   20:class Deserializer;
+        -:   21:class Value;
+        -:   22:class TypeCatalogEntry;
+        -:   23:class Vector;
+        -:   24:class ClientContext;
+        -:   25:class ParsedExpression;
+        -:   26:class CoordinateReferenceSystem;
+        -:   27:
+        -:   28:struct string_t; // NOLINT: mimic std casing
+        -:   29:
+        -:   30:template <class T>
+        -:   31:using child_list_t = vector<std::pair<std::string, T>>;
+        -:   32://! FIXME: this should be a single_thread_ptr
+        -:   33:template <class T>
+        -:   34:using buffer_ptr = shared_ptr<T>;
+        -:   35:
+        -:   36:template <class T, typename... ARGS>
+    #####:   37:buffer_ptr<T> make_buffer(ARGS &&...args) { // NOLINT: mimic std casing
+    #####:   38:	return make_shared_ptr<T>(std::forward<ARGS>(args)...);
+        -:   39:}
+        -:   40:
+        -:   41:struct list_entry_t { // NOLINT: mimic std casing
+        -:   42:	list_entry_t() = default;
+        -:   43:	list_entry_t(uint64_t offset, uint64_t length) : offset(offset), length(length) {
+        -:   44:	}
+        -:   45:	inline constexpr bool operator!=(const list_entry_t &other) const {
+        -:   46:		return !(*this == other);
+        -:   47:	}
+        -:   48:	inline constexpr bool operator==(const list_entry_t &other) const {
+        -:   49:		return offset == other.offset && length == other.length;
+        -:   50:	}
+        -:   51:
+        -:   52:	uint64_t offset;
+        -:   53:	uint64_t length;
+        -:   54:};
+        -:   55:
+        -:   56:using union_tag_t = uint8_t;
+        -:   57:
+        -:   58://===--------------------------------------------------------------------===//
+        -:   59:// Internal Types
+        -:   60://===--------------------------------------------------------------------===//
+        -:   61:
+        -:   62:// taken from arrow's type.h
+        -:   63:enum class PhysicalType : uint8_t {
+        -:   64:	///// A NULL type having no physical storage
+        -:   65:	// NA = 0,
+        -:   66:
+        -:   67:	/// Boolean as 8 bit "bool" value
+        -:   68:	BOOL = 1,
+        -:   69:
+        -:   70:	/// Unsigned 8-bit little-endian integer
+        -:   71:	UINT8 = 2,
+        -:   72:
+        -:   73:	/// Signed 8-bit little-endian integer
+        -:   74:	INT8 = 3,
+        -:   75:
+        -:   76:	/// Unsigned 16-bit little-endian integer
+        -:   77:	UINT16 = 4,
+        -:   78:
+        -:   79:	/// Signed 16-bit little-endian integer
+        -:   80:	INT16 = 5,
+        -:   81:
+        -:   82:	/// Unsigned 32-bit little-endian integer
+        -:   83:	UINT32 = 6,
+        -:   84:
+        -:   85:	/// Signed 32-bit little-endian integer
+        -:   86:	INT32 = 7,
+        -:   87:
+        -:   88:	/// Unsigned 64-bit little-endian integer
+        -:   89:	UINT64 = 8,
+        -:   90:
+        -:   91:	/// Signed 64-bit little-endian integer
+        -:   92:	INT64 = 9,
+        -:   93:
+        -:   94:	///// 2-byte floating point value
+        -:   95:	// HALF_FLOAT = 10,
+        -:   96:
+        -:   97:	/// 4-byte floating point value
+        -:   98:	FLOAT = 11,
+        -:   99:
+        -:  100:	/// 8-byte floating point value
+        -:  101:	DOUBLE = 12,
+        -:  102:
+        -:  103:	///// UTF8 variable-length string as List<Char>
+        -:  104:	// STRING = 13,
+        -:  105:
+        -:  106:	///// Variable-length bytes (no guarantee of UTF8-ness)
+        -:  107:	// BINARY = 14,
+        -:  108:
+        -:  109:	///// Fixed-size binary. Each value occupies the same number of bytes
+        -:  110:	// FIXED_SIZE_BINARY = 15,
+        -:  111:
+        -:  112:	///// int32_t days since the UNIX epoch
+        -:  113:	// DATE32 = 16,
+        -:  114:
+        -:  115:	///// int64_t milliseconds since the UNIX epoch
+        -:  116:	// DATE64 = 17,
+        -:  117:
+        -:  118:	///// Exact timestamp encoded with int64 since UNIX epoch
+        -:  119:	///// Default unit millisecond
+        -:  120:	// TIMESTAMP = 18,
+        -:  121:
+        -:  122:	///// Time as signed 32-bit integer, representing either seconds or
+        -:  123:	///// milliseconds since midnight
+        -:  124:	// TIME32 = 19,
+        -:  125:
+        -:  126:	///// Time as signed 64-bit integer, representing either microseconds or
+        -:  127:	///// nanoseconds since midnight
+        -:  128:	// TIME64 = 20,
+        -:  129:
+        -:  130:	/// YEAR_MONTH or DAY_TIME interval in SQL style
+        -:  131:	INTERVAL = 21,
+        -:  132:
+        -:  133:	/// Precision- and scale-based decimal type. Storage type depends on the
+        -:  134:	/// parameters.
+        -:  135:	// DECIMAL = 22,
+        -:  136:
+        -:  137:	/// A list of some logical data type
+        -:  138:	LIST = 23,
+        -:  139:
+        -:  140:	/// Struct of logical types
+        -:  141:	STRUCT = 24,
+        -:  142:
+        -:  143:	///// Unions of logical types
+        -:  144:	// UNION = 25,
+        -:  145:
+        -:  146:	///// Dictionary-encoded type, also called "categorical" or "factor"
+        -:  147:	///// in other programming languages. Holds the dictionary value
+        -:  148:	///// type but not the dictionary itself, which is part of the
+        -:  149:	///// ArrayData struct
+        -:  150:	// DICTIONARY = 26,
+        -:  151:
+        -:  152:	///// Custom data type, implemented by user
+        -:  153:	// EXTENSION = 28,
+        -:  154:
+        -:  155:	///// Array with fixed length of some logical type (a fixed-size list)
+        -:  156:	ARRAY = 29,
+        -:  157:
+        -:  158:	///// Measure of elapsed time in either seconds, milliseconds, microseconds
+        -:  159:	///// or nanoseconds.
+        -:  160:	// DURATION = 30,
+        -:  161:
+        -:  162:	///// Like STRING, but with 64-bit offsets
+        -:  163:	// LARGE_STRING = 31,
+        -:  164:
+        -:  165:	///// Like BINARY, but with 64-bit offsets
+        -:  166:	// LARGE_BINARY = 32,
+        -:  167:
+        -:  168:	///// Like LIST, but with 64-bit offsets
+        -:  169:	// LARGE_LIST = 33,
+        -:  170:
+        -:  171:	/// DuckDB Extensions
+        -:  172:	VARCHAR = 200, // our own string representation, different from STRING and LARGE_STRING above
+        -:  173:	UINT128 = 203, // 128-bit unsigned integers
+        -:  174:	INT128 = 204, // 128-bit integers
+        -:  175:	UNKNOWN = 205, // Unknown physical type of user defined types
+        -:  176:	/// Boolean as 1 bit, LSB bit-packed ordering
+        -:  177:	BIT = 206,
+        -:  178:
+        -:  179:	INVALID = 255
+        -:  180:};
+        -:  181:
+        -:  182://===--------------------------------------------------------------------===//
+        -:  183:// SQL Types
+        -:  184://===--------------------------------------------------------------------===//
+        -:  185:enum class LogicalTypeId : uint8_t {
+        -:  186:	INVALID = 0,
+        -:  187:	SQLNULL = 1, /* NULL type, used for constant NULL */
+        -:  188:	UNKNOWN = 2, /* unknown type, used for parameter expressions */
+        -:  189:	ANY = 3,     /* ANY type, used for functions that accept any type as parameter */
+        -:  190:	UNBOUND = 4,    /* A parsed but unbound type, used during query planning */
+        -:  191:
+        -:  192:	// A "template" type functions as a "placeholder" type for function arguments and return types.
+        -:  193:	// Templates only exist during the binding phase, in the scope of a function, and are replaced with concrete types
+        -:  194:	// before execution. When defining a template, you provide a name to distinguish between different template types,
+        -:  195:	// specifying to the binder that they dont need to resolve to the same concrete type. Two templates with the same
+        -:  196:	// name are always resolved to the same concrete type.
+        -:  197:	TEMPLATE = 5,
+        -:  198:
+        -:  199:	TYPE = 6,    /* Type type, used for type parameters */
+        -:  200:
+        -:  201:	BOOLEAN = 10,
+        -:  202:	TINYINT = 11,
+        -:  203:	SMALLINT = 12,
+        -:  204:	INTEGER = 13,
+        -:  205:	BIGINT = 14,
+        -:  206:	DATE = 15,
+        -:  207:	TIME = 16,
+        -:  208:	TIMESTAMP_SEC = 17,
+        -:  209:	TIMESTAMP_MS = 18,
+        -:  210:	TIMESTAMP = 19, //! us
+        -:  211:	TIMESTAMP_NS = 20,
+        -:  212:	DECIMAL = 21,
+        -:  213:	FLOAT = 22,
+        -:  214:	DOUBLE = 23,
+        -:  215:	CHAR = 24,
+        -:  216:	VARCHAR = 25,
+        -:  217:	BLOB = 26,
+        -:  218:	INTERVAL = 27,
+        -:  219:	UTINYINT = 28,
+        -:  220:	USMALLINT = 29,
+        -:  221:	UINTEGER = 30,
+        -:  222:	UBIGINT = 31,
+        -:  223:	TIMESTAMP_TZ = 32,
+        -:  224:	TIME_TZ = 34,
+        -:  225:	TIME_NS = 35,
+        -:  226:	BIT = 36,
+        -:  227:	STRING_LITERAL = 37, /* string literals, used for constant strings - only exists while binding */
+        -:  228:	INTEGER_LITERAL = 38,/* integer literals, used for constant integers - only exists while binding */
+        -:  229:	BIGNUM = 39,
+        -:  230:	UHUGEINT = 49,
+        -:  231:	HUGEINT = 50,
+        -:  232:	POINTER = 51,
+        -:  233:	VALIDITY = 53,
+        -:  234:	UUID = 54,
+        -:  235:
+        -:  236:	GEOMETRY = 60,
+        -:  237:
+        -:  238:	STRUCT = 100,
+        -:  239:	LIST = 101,
+        -:  240:	MAP = 102,
+        -:  241:	TABLE = 103,
+        -:  242:	ENUM = 104,
+        -:  243:	LEGACY_AGGREGATE_STATE = 105,
+        -:  244:	LAMBDA = 106,
+        -:  245:	UNION = 107,
+        -:  246:	ARRAY = 108,
+        -:  247:	VARIANT = 109,
+        -:  248:	AGGREGATE_STATE = 110, // struct-based aggregate state
+        -:  249:};
+        -:  250:
+        -:  251:struct ExtraTypeInfo;
+        -:  252:struct ExtensionTypeInfo;
+        -:  253:
+        -:  254:struct aggregate_state_t; // NOLINT: mimic std casing
+        -:  255:
+        -:  256:struct LogicalType {
+        -:  257:	DUCKDB_API LogicalType();
+        -:  258:	DUCKDB_API LogicalType(LogicalTypeId id); // NOLINT: Allow implicit conversion from `LogicalTypeId`
+        -:  259:	DUCKDB_API LogicalType(LogicalTypeId id, shared_ptr<ExtraTypeInfo> type_info);
+        -:  260:	DUCKDB_API LogicalType(const LogicalType &other);
+        -:  261:	DUCKDB_API LogicalType(LogicalType &&other) noexcept;
+        -:  262:
+        -:  263:	DUCKDB_API ~LogicalType();
+        -:  264:
+        -:  265:	inline LogicalTypeId id() const { // NOLINT: mimic std casing
+        -:  266:		return id_;
+        -:  267:	}
+       10:  268:	inline PhysicalType InternalType() const {
+       10:  269:		return physical_type_;
+        -:  270:	}
+        -:  271:	inline const optional_ptr<ExtraTypeInfo> AuxInfo() const {
+        -:  272:		return type_info_.get();
+        -:  273:	}
+        -:  274:	inline bool IsNested() const {
+        -:  275:		auto internal = InternalType();
+        -:  276:		if (internal == PhysicalType::STRUCT) {
+        -:  277:			return true;
+        -:  278:		}
+        -:  279:		if (internal == PhysicalType::LIST) {
+        -:  280:			return true;
+        -:  281:		}
+        -:  282:		if (internal == PhysicalType::ARRAY) {
+        -:  283:			return true;
+        -:  284:		}
+        -:  285:		return false;
+        -:  286:	}
+        -:  287:	inline bool IsUnknown() const {
+        -:  288:		return id_ == LogicalTypeId::UNKNOWN;
+        -:  289:	}
+        -:  290:	inline bool IsUnbound() const {
+        -:  291:		return id_ == LogicalTypeId::UNBOUND;
+        -:  292:	}
+        -:  293:
+        -:  294:	inline shared_ptr<ExtraTypeInfo> GetAuxInfoShrPtr() const {
+        -:  295:		return type_info_;
+        -:  296:	}
+        -:  297:
+        -:  298:	//! Copies the logical type, making a new ExtraTypeInfo
+        -:  299:	LogicalType Copy() const;
+        -:  300:	//! DeepCopy() will make a unique copy of any nested ExtraTypeInfo as well
+        -:  301:	LogicalType DeepCopy() const;
+        -:  302:
+        -:  303:	inline void CopyAuxInfo(const LogicalType &other) {
+        -:  304:		type_info_ = other.type_info_;
+        -:  305:	}
+        -:  306:	bool EqualTypeInfo(const LogicalType &rhs) const;
+        -:  307:
+        -:  308:	// copy assignment
+        -:  309:	inline LogicalType &operator=(const LogicalType &other) {
+        -:  310:		if (this == &other) {
+        -:  311:			return *this;
+        -:  312:		}
+        -:  313:		id_ = other.id_;
+        -:  314:		physical_type_ = other.physical_type_;
+        -:  315:		type_info_ = other.type_info_;
+        -:  316:		return *this;
+        -:  317:	}
+        -:  318:	// move assignment
+        -:  319:	inline LogicalType &operator=(LogicalType &&other) noexcept {
+        -:  320:		id_ = other.id_;
+        -:  321:		physical_type_ = other.physical_type_;
+        -:  322:		std::swap(type_info_, other.type_info_);
+        -:  323:		return *this;
+        -:  324:	}
+        -:  325:
+        -:  326:	DUCKDB_API bool operator==(const LogicalType &rhs) const;
+        -:  327:	inline bool operator!=(const LogicalType &rhs) const {
+        -:  328:		return !(*this == rhs);
+        -:  329:	}
+        -:  330:
+        -:  331:	DUCKDB_API void Serialize(Serializer &serializer) const;
+        -:  332:	DUCKDB_API static LogicalType Deserialize(Deserializer &deserializer);
+        -:  333:
+        -:  334:	static bool TypeIsTimestamp(LogicalTypeId id) {
+        -:  335:		return (id == LogicalTypeId::TIMESTAMP || id == LogicalTypeId::TIMESTAMP_MS ||
+        -:  336:		        id == LogicalTypeId::TIMESTAMP_NS || id == LogicalTypeId::TIMESTAMP_SEC ||
+        -:  337:		        id == LogicalTypeId::TIMESTAMP_TZ);
+        -:  338:	}
+        -:  339:	static bool TypeIsTimestamp(const LogicalType &type) {
+        -:  340:		return TypeIsTimestamp(type.id());
+        -:  341:	}
+        -:  342:	DUCKDB_API string ToString() const;
+        -:  343:	DUCKDB_API bool IsIntegral() const;
+        -:  344:	DUCKDB_API bool IsFloating() const;
+        -:  345:	DUCKDB_API bool IsNumeric() const;
+        -:  346:	DUCKDB_API static bool IsNumeric(LogicalTypeId type);
+        -:  347:	DUCKDB_API bool IsTemporal() const;
+        -:  348:	DUCKDB_API hash_t Hash() const;
+        -:  349:	DUCKDB_API void SetAlias(string alias);
+        -:  350:	DUCKDB_API bool HasAlias() const;
+        -:  351:	DUCKDB_API string GetAlias() const;
+        -:  352:
+        -:  353:	DUCKDB_API bool HasExtensionInfo() const;
+        -:  354:	DUCKDB_API optional_ptr<const ExtensionTypeInfo> GetExtensionInfo() const;
+        -:  355:	DUCKDB_API optional_ptr<ExtensionTypeInfo> GetExtensionInfo();
+        -:  356:	DUCKDB_API void SetExtensionInfo(unique_ptr<ExtensionTypeInfo> info);
+        -:  357:
+        -:  358:	//! Returns the maximum logical type when combining the two types - or throws an exception if combining is not possible
+        -:  359:	DUCKDB_API static LogicalType MaxLogicalType(ClientContext &context, const LogicalType &left, const LogicalType &right);
+        -:  360:	DUCKDB_API static bool TryGetMaxLogicalType(ClientContext &context, const LogicalType &left, const LogicalType &right, LogicalType &result);
+        -:  361:	DUCKDB_API static bool TryGetMaxLogicalTypeUnchecked(const LogicalType &left, const LogicalType &right, LogicalType &result);
+        -:  362:	//! Forcibly returns a maximum logical type - similar to MaxLogicalType but never throws. As a fallback either left or right are returned.
+        -:  363:	DUCKDB_API static LogicalType ForceMaxLogicalType(const LogicalType &left, const LogicalType &right);
+        -:  364:	//! Normalize a type - removing literals
+        -:  365:	DUCKDB_API static LogicalType NormalizeType(const LogicalType &type);
+        -:  366:
+        -:  367:
+        -:  368:	//! Gets the decimal properties of a numeric type. Fails if the type is not numeric.
+        -:  369:	DUCKDB_API bool GetDecimalProperties(uint8_t &width, uint8_t &scale) const;
+        -:  370:
+        -:  371:	DUCKDB_API void Verify() const;
+        -:  372:
+        -:  373:	DUCKDB_API bool IsSigned() const;
+        -:  374:	DUCKDB_API bool IsUnsigned() const;
+        -:  375:
+        -:  376:	DUCKDB_API bool IsValid() const;
+        -:  377:	DUCKDB_API bool IsComplete() const;
+        -:  378:	DUCKDB_API bool IsTemplated() const;
+        -:  379:
+        -:  380:	//! True, if this type supports in-place updates.
+        -:  381:	bool SupportsRegularUpdate() const;
+        -:  382:
+        -:  383:
+        -:  384:private:
+        -:  385:	LogicalTypeId id_; // NOLINT: allow this naming for legacy reasons
+        -:  386:	PhysicalType physical_type_; // NOLINT: allow this naming for legacy reasons
+        -:  387:	shared_ptr<ExtraTypeInfo> type_info_; // NOLINT: allow this naming for legacy reasons
+        -:  388:
+        -:  389:private:
+        -:  390:	PhysicalType GetInternalType();
+        -:  391:
+        -:  392:public:
+        -:  393:	static constexpr const LogicalTypeId SQLNULL = LogicalTypeId::SQLNULL;
+        -:  394:	static constexpr const LogicalTypeId UNKNOWN = LogicalTypeId::UNKNOWN;
+        -:  395:	static constexpr const LogicalTypeId BOOLEAN = LogicalTypeId::BOOLEAN;
+        -:  396:	static constexpr const LogicalTypeId TINYINT = LogicalTypeId::TINYINT;
+        -:  397:	static constexpr const LogicalTypeId UTINYINT = LogicalTypeId::UTINYINT;
+        -:  398:	static constexpr const LogicalTypeId SMALLINT = LogicalTypeId::SMALLINT;
+        -:  399:	static constexpr const LogicalTypeId USMALLINT = LogicalTypeId::USMALLINT;
+        -:  400:	static constexpr const LogicalTypeId INTEGER = LogicalTypeId::INTEGER;
+        -:  401:	static constexpr const LogicalTypeId UINTEGER = LogicalTypeId::UINTEGER;
+        -:  402:	static constexpr const LogicalTypeId BIGINT = LogicalTypeId::BIGINT;
+        -:  403:	static constexpr const LogicalTypeId UBIGINT = LogicalTypeId::UBIGINT;
+        -:  404:	static constexpr const LogicalTypeId FLOAT = LogicalTypeId::FLOAT;
+        -:  405:	static constexpr const LogicalTypeId DOUBLE = LogicalTypeId::DOUBLE;
+        -:  406:	static constexpr const LogicalTypeId DATE = LogicalTypeId::DATE;
+        -:  407:	static constexpr const LogicalTypeId TIMESTAMP = LogicalTypeId::TIMESTAMP;
+        -:  408:	static constexpr const LogicalTypeId TIMESTAMP_S = LogicalTypeId::TIMESTAMP_SEC;
+        -:  409:	static constexpr const LogicalTypeId TIMESTAMP_MS = LogicalTypeId::TIMESTAMP_MS;
+        -:  410:	static constexpr const LogicalTypeId TIMESTAMP_NS = LogicalTypeId::TIMESTAMP_NS;
+        -:  411:	static constexpr const LogicalTypeId TIME = LogicalTypeId::TIME;
+        -:  412:	static constexpr const LogicalTypeId TIME_NS = LogicalTypeId::TIME_NS;
+        -:  413:	static constexpr const LogicalTypeId TIMESTAMP_TZ = LogicalTypeId::TIMESTAMP_TZ;
+        -:  414:	static constexpr const LogicalTypeId TIME_TZ = LogicalTypeId::TIME_TZ;
+        -:  415:	static constexpr const LogicalTypeId VARCHAR = LogicalTypeId::VARCHAR;
+        -:  416:	static constexpr const LogicalTypeId ANY = LogicalTypeId::ANY;
+        -:  417:	static constexpr const LogicalTypeId BLOB = LogicalTypeId::BLOB;
+        -:  418:	static constexpr const LogicalTypeId BIT = LogicalTypeId::BIT;
+        -:  419:	static constexpr const LogicalTypeId BIGNUM = LogicalTypeId::BIGNUM;
+        -:  420:
+        -:  421:	static constexpr const LogicalTypeId INTERVAL = LogicalTypeId::INTERVAL;
+        -:  422:	static constexpr const LogicalTypeId HUGEINT = LogicalTypeId::HUGEINT;
+        -:  423:	static constexpr const LogicalTypeId UHUGEINT = LogicalTypeId::UHUGEINT;
+        -:  424:	static constexpr const LogicalTypeId UUID = LogicalTypeId::UUID;
+        -:  425:	static constexpr const LogicalTypeId HASH = LogicalTypeId::UBIGINT;
+        -:  426:	static constexpr const LogicalTypeId POINTER = LogicalTypeId::POINTER;
+        -:  427:	static constexpr const LogicalTypeId TABLE = LogicalTypeId::TABLE;
+        -:  428:	static constexpr const LogicalTypeId LAMBDA = LogicalTypeId::LAMBDA;
+        -:  429:	static constexpr const LogicalTypeId INVALID = LogicalTypeId::INVALID;
+        -:  430:	static constexpr const LogicalTypeId ROW_TYPE = LogicalTypeId::BIGINT;
+        -:  431:
+        -:  432:	// explicitly allowing these functions to be capitalized to be in-line with the remaining functions
+        -:  433:	DUCKDB_API static LogicalType DECIMAL(uint8_t width, uint8_t scale);                 // NOLINT
+        -:  434:	DUCKDB_API static LogicalType VARCHAR_COLLATION(string collation);           // NOLINT
+        -:  435:	DUCKDB_API static LogicalType LIST(const LogicalType &child);                // NOLINT
+        -:  436:	DUCKDB_API static LogicalType STRUCT(child_list_t<LogicalType> children);    // NOLINT
+        -:  437:	DUCKDB_API static LogicalType LEGACY_AGGREGATE_STATE(aggregate_state_t state_type); // NOLINT
+        -:  438:	DUCKDB_API static LogicalType AGGREGATE_STATE(aggregate_state_t state_type,  // NOLINT
+        -:  439:							      child_list_t<LogicalType> struct_child_types); // NOLINT
+        -:  440:	DUCKDB_API static LogicalType MAP(const LogicalType &child);                 // NOLINT
+        -:  441:	DUCKDB_API static LogicalType MAP(LogicalType key, LogicalType value);       // NOLINT
+        -:  442:	DUCKDB_API static LogicalType UNION(child_list_t<LogicalType> members);      // NOLINT
+        -:  443:	DUCKDB_API static LogicalType ARRAY(const LogicalType &child, optional_idx index);   // NOLINT
+        -:  444:	DUCKDB_API static LogicalType ENUM(Vector &ordered_data, idx_t size); // NOLINT
+        -:  445:	DUCKDB_API static LogicalType GEOMETRY(); // NOLINT
+        -:  446:	DUCKDB_API static LogicalType GEOMETRY(const string &crs);
+        -:  447:	DUCKDB_API static LogicalType GEOMETRY(const CoordinateReferenceSystem &crs);
+        -:  448:	// ANY but with special rules (default is LogicalType::ANY, 5)
+        -:  449:	DUCKDB_API static LogicalType ANY_PARAMS(LogicalType target, idx_t cast_score = 5); // NOLINT
+        -:  450:	DUCKDB_API static LogicalType TEMPLATE(const string &name);							// NOLINT
+        -:  451:	DUCKDB_API static LogicalType VARIANT(); // NOLINT
+        -:  452:	//! Integer literal of the specified value
+        -:  453:	DUCKDB_API static LogicalType INTEGER_LITERAL(const Value &constant);               // NOLINT
+        -:  454:	// DEPRECATED - provided for backwards compatibility
+        -:  455:	DUCKDB_API static LogicalType ENUM(const string &enum_name, Vector &ordered_data, idx_t size); // NOLINT
+        -:  456:	DUCKDB_API static LogicalType UNBOUND(unique_ptr<ParsedExpression> expr);	// NOLINT
+        -:  457:	DUCKDB_API static LogicalType TYPE(); // NOLINT
+        -:  458:	//! A list of all NUMERIC types (integral and floating point types)
+        -:  459:	DUCKDB_API static const vector<LogicalType> Numeric();
+        -:  460:	//! A list of all INTEGRAL types
+        -:  461:	DUCKDB_API static const vector<LogicalType> Integral();
+        -:  462:	//! A list of all REAL types
+        -:  463:	DUCKDB_API static const vector<LogicalType> Real();
+        -:  464:	//! A list of ALL SQL types
+        -:  465:	DUCKDB_API static const vector<LogicalType> AllTypes();
+        -:  466:
+        -:  467:public:
+        -:  468:	//! The JSON type lives in the JSON extension, but we need to define this here for special handling
+        -:  469:	static constexpr auto JSON_TYPE_NAME = "JSON";
+        -:  470:	DUCKDB_API static LogicalType JSON(); // NOLINT
+        -:  471:	DUCKDB_API bool IsJSONType() const;
+        -:  472:	DUCKDB_API bool IsAggregateStateStructType() const;
+        -:  473:};
+        -:  474:
+        -:  475:struct DecimalType {
+        -:  476:	DUCKDB_API static uint8_t GetWidth(const LogicalType &type);
+        -:  477:	DUCKDB_API static uint8_t GetScale(const LogicalType &type);
+        -:  478:	DUCKDB_API static uint8_t MaxWidth();
+        -:  479:};
+        -:  480:
+        -:  481:struct StringType {
+        -:  482:	DUCKDB_API static string GetCollation(const LogicalType &type);
+        -:  483:};
+        -:  484:
+        -:  485:struct ListType {
+        -:  486:	DUCKDB_API static const LogicalType &GetChildType(const LogicalType &type);
+        -:  487:};
+        -:  488:
+        -:  489:
+        -:  490:struct UnboundType {
+        -:  491:	// Try to bind the unbound type into a concrete type, using just the built in types
+        -:  492:	DUCKDB_API static LogicalType TryParseAndDefaultBind(const string &type_str);
+        -:  493:	DUCKDB_API static LogicalType TryDefaultBind(const LogicalType &unbound_type);
+        -:  494:	DUCKDB_API static const unique_ptr<ParsedExpression> &GetTypeExpression(const LogicalType &type);
+        -:  495:};
+        -:  496:
+        -:  497:struct EnumType {
+        -:  498:	DUCKDB_API static int64_t GetPos(const LogicalType &type, const string_t &key);
+        -:  499:	DUCKDB_API static const Vector &GetValuesInsertOrder(const LogicalType &type);
+        -:  500:	DUCKDB_API static idx_t GetSize(const LogicalType &type);
+        -:  501:	DUCKDB_API static const string GetValue(const Value &val);
+        -:  502:	DUCKDB_API static PhysicalType GetPhysicalType(const LogicalType &type);
+        -:  503:	DUCKDB_API static string_t GetString(const LogicalType &type, idx_t pos);
+        -:  504:};
+        -:  505:
+        -:  506:struct StructType {
+        -:  507:	DUCKDB_API static const child_list_t<LogicalType> &GetChildTypes(const LogicalType &type);
+        -:  508:	DUCKDB_API static const LogicalType &GetChildType(const LogicalType &type, idx_t index);
+        -:  509:	DUCKDB_API static const string &GetChildName(const LogicalType &type, idx_t index);
+        -:  510:	DUCKDB_API static idx_t GetChildIndexUnsafe(const LogicalType &type, const string &name);
+        -:  511:	DUCKDB_API static idx_t GetChildCount(const LogicalType &type);
+        -:  512:	DUCKDB_API static bool IsUnnamed(const LogicalType &type);
+        -:  513:};
+        -:  514:
+        -:  515:struct MapType {
+        -:  516:	DUCKDB_API static const LogicalType &KeyType(const LogicalType &type);
+        -:  517:	DUCKDB_API static const LogicalType &ValueType(const LogicalType &type);
+        -:  518:};
+        -:  519:
+        -:  520:struct UnionType {
+        -:  521:	DUCKDB_API static const idx_t MAX_UNION_MEMBERS = 256;
+        -:  522:	DUCKDB_API static idx_t GetMemberCount(const LogicalType &type);
+        -:  523:	DUCKDB_API static const LogicalType &GetMemberType(const LogicalType &type, idx_t index);
+        -:  524:	DUCKDB_API static const string &GetMemberName(const LogicalType &type, idx_t index);
+        -:  525:	DUCKDB_API static const child_list_t<LogicalType> CopyMemberTypes(const LogicalType &type);
+        -:  526:};
+        -:  527:
+        -:  528:struct ArrayType {
+        -:  529:	DUCKDB_API static const LogicalType &GetChildType(const LogicalType &type);
+        -:  530:	DUCKDB_API static idx_t GetSize(const LogicalType &type);
+        -:  531:	DUCKDB_API static bool IsAnySize(const LogicalType &type);
+        -:  532:	DUCKDB_API static constexpr idx_t MAX_ARRAY_SIZE = 100000; // 100k for now
+        -:  533:	//! Recursively replace all ARRAY types to LIST types within the given type
+        -:  534:	DUCKDB_API static LogicalType ConvertToList(const LogicalType &type);
+        -:  535:};
+        -:  536:
+        -:  537:struct LegacyAggregateStateType {
+        -:  538:	DUCKDB_API static const string GetTypeName(const LogicalType &type);
+        -:  539:	DUCKDB_API static const aggregate_state_t &GetStateType(const LogicalType &type);
+        -:  540:};
+        -:  541:
+        -:  542:struct AggregateStateType : public StructType {
+        -:  543:	DUCKDB_API static const string GetTypeName(const LogicalType &type);
+        -:  544:	DUCKDB_API static const aggregate_state_t &GetStateType(const LogicalType &type);
+        -:  545:};
+        -:  546:
+        -:  547:struct AnyType {
+        -:  548:	DUCKDB_API static LogicalType GetTargetType(const LogicalType &type);
+        -:  549:	DUCKDB_API static idx_t GetCastScore(const LogicalType &type);
+        -:  550:};
+        -:  551:
+        -:  552:struct IntegerLiteral {
+        -:  553:	//! Returns the type that this integer literal "prefers"
+        -:  554:	DUCKDB_API static LogicalType GetType(const LogicalType &type);
+        -:  555:	//! Whether or not the integer literal fits into the target numeric type
+        -:  556:	DUCKDB_API static bool FitsInType(const LogicalType &type, const LogicalType &target);
+        -:  557:};
+        -:  558:
+        -:  559:struct TemplateType {
+        -:  560:	// Get the name of the template type
+        -:  561:	DUCKDB_API static const string &GetName(const LogicalType &type);
+        -:  562:};
+        -:  563:
+        -:  564:struct GeoType {
+        -:  565:	DUCKDB_API static bool HasCRS(const LogicalType &type);
+        -:  566:	DUCKDB_API static const CoordinateReferenceSystem &GetCRS(const LogicalType &type);
+        -:  567:};
+        -:  568:
+        -:  569:// **DEPRECATED**: Use EnumUtil directly instead.
+        -:  570:DUCKDB_API string LogicalTypeIdToString(LogicalTypeId type);
+        -:  571:
+        -:  572:DUCKDB_API LogicalTypeId TransformStringToLogicalTypeId(const string &str);
+        -:  573:
+        -:  574:DUCKDB_API LogicalType TransformStringToLogicalType(const string &str, ClientContext &context);
+        -:  575:
+        -:  576://! The PhysicalType used by the row identifiers column
+        -:  577:extern const PhysicalType ROW_TYPE;
+        -:  578:
+        -:  579:DUCKDB_API string TypeIdToString(PhysicalType type);
+        -:  580:DUCKDB_API idx_t GetTypeIdSize(PhysicalType type);
+        -:  581:DUCKDB_API bool TypeIsConstantSize(PhysicalType type);
+        -:  582:DUCKDB_API bool TypeIsIntegral(PhysicalType type);
+        -:  583:DUCKDB_API bool TypeIsNumeric(PhysicalType type);
+        -:  584:DUCKDB_API bool TypeIsInteger(PhysicalType type);
+        -:  585:
+        -:  586:bool ApproxEqual(float l, float r);
+        -:  587:bool ApproxEqual(double l, double r);
+        -:  588:
+        -:  589:struct aggregate_state_t {
+        -:  590:	aggregate_state_t() {
+        -:  591:	}
+        -:  592:	// NOLINTNEXTLINE: work around bug in clang-tidy
+        -:  593:	aggregate_state_t(string function_name_p, LogicalType return_type_p, vector<LogicalType> bound_argument_types_p)
+        -:  594:	    : function_name(std::move(function_name_p)), return_type(std::move(return_type_p)),
+        -:  595:	      bound_argument_types(std::move(bound_argument_types_p)) {
+        -:  596:	}
+        -:  597:
+        -:  598:	string function_name;
+        -:  599:	LogicalType return_type;
+        -:  600:	vector<LogicalType> bound_argument_types;
+        -:  601:};
+        -:  602:
+        -:  603:
+        -:  604:
+        -:  605:} // namespace duckdb

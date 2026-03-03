@@ -25,6 +25,11 @@ public:
 	// SQL: ai_filter_batch(image_blob, prompt, model) -> DOUBLE
 	// Uses async/concurrent execution for better throughput
 	static ScalarFunction GetAIFilterBatchFunction();
+
+	// AI_similarity: Cosine similarity between two vectors
+	// SQL: ai_similarity(vec1 FLOAT[], vec2 FLOAT[], model VARCHAR) -> DOUBLE
+	// Used for AI_join operations
+	static ScalarFunction GetAISimilarityFunction();
 };
 
 } // namespace duckdb

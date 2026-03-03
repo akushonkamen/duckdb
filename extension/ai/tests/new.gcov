@@ -1,0 +1,399 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/new
+        -:    0:Graph:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:/Users/yp1017/development/daft-duckdb-multimodal/duckdb/build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:// -*- C++ -*-
+        -:    2://===----------------------------------------------------------------------===//
+        -:    3://
+        -:    4:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    5:// See https://llvm.org/LICENSE.txt for license information.
+        -:    6:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    7://
+        -:    8://===----------------------------------------------------------------------===//
+        -:    9:
+        -:   10:#ifndef _LIBCPP_NEW
+        -:   11:#define _LIBCPP_NEW
+        -:   12:
+        -:   13:/*
+        -:   14:    new synopsis
+        -:   15:
+        -:   16:namespace std
+        -:   17:{
+        -:   18:
+        -:   19:class bad_alloc
+        -:   20:    : public exception
+        -:   21:{
+        -:   22:public:
+        -:   23:    bad_alloc() noexcept;
+        -:   24:    bad_alloc(const bad_alloc&) noexcept;
+        -:   25:    bad_alloc& operator=(const bad_alloc&) noexcept;
+        -:   26:    virtual const char* what() const noexcept;
+        -:   27:};
+        -:   28:
+        -:   29:class bad_array_new_length : public bad_alloc // C++14
+        -:   30:{
+        -:   31:public:
+        -:   32:    bad_array_new_length() noexcept;
+        -:   33:};
+        -:   34:
+        -:   35:enum class align_val_t : size_t {}; // C++17
+        -:   36:
+        -:   37:struct destroying_delete_t { // C++20
+        -:   38:  explicit destroying_delete_t() = default;
+        -:   39:};
+        -:   40:inline constexpr destroying_delete_t destroying_delete{}; // C++20
+        -:   41:
+        -:   42:struct nothrow_t { explicit nothrow_t() = default; };
+        -:   43:extern const nothrow_t nothrow;
+        -:   44:typedef void (*new_handler)();
+        -:   45:new_handler set_new_handler(new_handler new_p) noexcept;
+        -:   46:new_handler get_new_handler() noexcept;
+        -:   47:
+        -:   48:// 21.6.4, pointer optimization barrier
+        -:   49:template <class T> [[nodiscard]] constexpr T* launder(T* p) noexcept;   // C++17, nodiscard since C++20
+        -:   50:}  // std
+        -:   51:
+        -:   52:void* operator new(std::size_t size);                                   // replaceable, nodiscard in C++20
+        -:   53:void* operator new(std::size_t size, std::align_val_t alignment);       // replaceable, C++17, nodiscard in C++20
+        -:   54:void* operator new(std::size_t size, const std::nothrow_t&) noexcept;   // replaceable, nodiscard in C++20
+        -:   55:void* operator new(std::size_t size, std::align_val_t alignment,
+        -:   56:                   const std::nothrow_t&) noexcept;                     // replaceable, C++17, nodiscard in C++20
+        -:   57:void  operator delete(void* ptr) noexcept;                              // replaceable
+        -:   58:void  operator delete(void* ptr, std::size_t size) noexcept;            // replaceable, C++14
+        -:   59:void  operator delete(void* ptr, std::align_val_t alignment) noexcept;  // replaceable, C++17
+        -:   60:void  operator delete(void* ptr, std::size_t size,
+        -:   61:                      std::align_val_t alignment) noexcept;             // replaceable, C++17
+        -:   62:void  operator delete(void* ptr, const std::nothrow_t&) noexcept;       // replaceable
+        -:   63:void  operator delete(void* ptr, std:align_val_t alignment,
+        -:   64:                      const std::nothrow_t&) noexcept;                  // replaceable, C++17
+        -:   65:
+        -:   66:void* operator new[](std::size_t size);                                 // replaceable, nodiscard in C++20
+        -:   67:void* operator new[](std::size_t size,
+        -:   68:                     std::align_val_t alignment) noexcept;              // replaceable, C++17, nodiscard in C++20
+        -:   69:void* operator new[](std::size_t size, const std::nothrow_t&) noexcept; // replaceable, nodiscard in C++20
+        -:   70:void* operator new[](std::size_t size, std::align_val_t alignment,
+        -:   71:                     const std::nothrow_t&) noexcept;                   // replaceable, C++17, nodiscard in C++20
+        -:   72:void  operator delete[](void* ptr) noexcept;                            // replaceable
+        -:   73:void  operator delete[](void* ptr, std::size_t size) noexcept;          // replaceable, C++14
+        -:   74:void  operator delete[](void* ptr,
+        -:   75:                        std::align_val_t alignment) noexcept;           // replaceable, C++17
+        -:   76:void  operator delete[](void* ptr, std::size_t size,
+        -:   77:                        std::align_val_t alignment) noexcept;           // replaceable, C++17
+        -:   78:void  operator delete[](void* ptr, const std::nothrow_t&) noexcept;     // replaceable
+        -:   79:void  operator delete[](void* ptr, std::align_val_t alignment,
+        -:   80:                        const std::nothrow_t&) noexcept;                // replaceable, C++17
+        -:   81:
+        -:   82:void* operator new  (std::size_t size, void* ptr) noexcept;             // nodiscard in C++20
+        -:   83:void* operator new[](std::size_t size, void* ptr) noexcept;             // nodiscard in C++20
+        -:   84:void  operator delete  (void* ptr, void*) noexcept;
+        -:   85:void  operator delete[](void* ptr, void*) noexcept;
+        -:   86:
+        -:   87:*/
+        -:   88:
+        -:   89:#include <__config>
+        -:   90:#include <__exception/exception.h>
+        -:   91:#include <__type_traits/is_function.h>
+        -:   92:#include <__type_traits/is_same.h>
+        -:   93:#include <__type_traits/remove_cv.h>
+        -:   94:#include <__verbose_abort>
+        -:   95:#include <cstddef>
+        -:   96:#include <stdlib.h>
+        -:   97:#include <version>
+        -:   98:
+        -:   99:#if defined(_LIBCPP_ABI_VCRUNTIME)
+        -:  100:#  include <new.h>
+        -:  101:#endif
+        -:  102:
+        -:  103:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:  104:#  pragma GCC system_header
+        -:  105:#endif
+        -:  106:
+        -:  107:#if !defined(__cpp_sized_deallocation) || __cpp_sized_deallocation < 201309L
+        -:  108:#  define _LIBCPP_HAS_NO_LANGUAGE_SIZED_DEALLOCATION
+        -:  109:#endif
+        -:  110:
+        -:  111:#if !defined(_LIBCPP_BUILDING_LIBRARY) && _LIBCPP_STD_VER < 14 && defined(_LIBCPP_HAS_NO_LANGUAGE_SIZED_DEALLOCATION)
+        -:  112:#  define _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+        -:  113:#endif
+        -:  114:
+        -:  115:#if defined(_LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION) || defined(_LIBCPP_HAS_NO_LANGUAGE_SIZED_DEALLOCATION)
+        -:  116:#  define _LIBCPP_HAS_NO_SIZED_DEALLOCATION
+        -:  117:#endif
+        -:  118:
+        -:  119:namespace std // purposefully not using versioning namespace
+        -:  120:{
+        -:  121:
+        -:  122:#if !defined(_LIBCPP_ABI_VCRUNTIME)
+        -:  123:struct _LIBCPP_EXPORTED_FROM_ABI nothrow_t {
+        -:  124:  explicit nothrow_t() = default;
+        -:  125:};
+        -:  126:extern _LIBCPP_EXPORTED_FROM_ABI const nothrow_t nothrow;
+        -:  127:
+        -:  128:class _LIBCPP_EXPORTED_FROM_ABI bad_alloc : public exception {
+        -:  129:public:
+        -:  130:  bad_alloc() _NOEXCEPT;
+        -:  131:  _LIBCPP_HIDE_FROM_ABI bad_alloc(const bad_alloc&) _NOEXCEPT            = default;
+        -:  132:  _LIBCPP_HIDE_FROM_ABI bad_alloc& operator=(const bad_alloc&) _NOEXCEPT = default;
+        -:  133:  ~bad_alloc() _NOEXCEPT override;
+        -:  134:  const char* what() const _NOEXCEPT override;
+        -:  135:};
+        -:  136:
+        -:  137:class _LIBCPP_EXPORTED_FROM_ABI bad_array_new_length : public bad_alloc {
+        -:  138:public:
+        -:  139:  bad_array_new_length() _NOEXCEPT;
+        -:  140:  _LIBCPP_HIDE_FROM_ABI bad_array_new_length(const bad_array_new_length&) _NOEXCEPT            = default;
+        -:  141:  _LIBCPP_HIDE_FROM_ABI bad_array_new_length& operator=(const bad_array_new_length&) _NOEXCEPT = default;
+        -:  142:  ~bad_array_new_length() _NOEXCEPT override;
+        -:  143:  const char* what() const _NOEXCEPT override;
+        -:  144:};
+        -:  145:
+        -:  146:typedef void (*new_handler)();
+        -:  147:_LIBCPP_EXPORTED_FROM_ABI new_handler set_new_handler(new_handler) _NOEXCEPT;
+        -:  148:_LIBCPP_EXPORTED_FROM_ABI new_handler get_new_handler() _NOEXCEPT;
+        -:  149:
+        -:  150:#elif defined(_HAS_EXCEPTIONS) && _HAS_EXCEPTIONS == 0 // !_LIBCPP_ABI_VCRUNTIME
+        -:  151:
+        -:  152:// When _HAS_EXCEPTIONS == 0, these complete definitions are needed,
+        -:  153:// since they would normally be provided in vcruntime_exception.h
+        -:  154:class bad_alloc : public exception {
+        -:  155:public:
+        -:  156:  bad_alloc() noexcept : exception("bad allocation") {}
+        -:  157:
+        -:  158:private:
+        -:  159:  friend class bad_array_new_length;
+        -:  160:
+        -:  161:  bad_alloc(char const* const __message) noexcept : exception(__message) {}
+        -:  162:};
+        -:  163:
+        -:  164:class bad_array_new_length : public bad_alloc {
+        -:  165:public:
+        -:  166:  bad_array_new_length() noexcept : bad_alloc("bad array new length") {}
+        -:  167:};
+        -:  168:#endif // defined(_LIBCPP_ABI_VCRUNTIME) && defined(_HAS_EXCEPTIONS) && _HAS_EXCEPTIONS == 0
+        -:  169:
+        -:  170:_LIBCPP_NORETURN _LIBCPP_EXPORTED_FROM_ABI void __throw_bad_alloc(); // not in C++ spec
+        -:  171:
+    #####:  172:_LIBCPP_NORETURN inline _LIBCPP_HIDE_FROM_ABI void __throw_bad_array_new_length() {
+        -:  173:#ifndef _LIBCPP_HAS_NO_EXCEPTIONS
+    #####:  174:  throw bad_array_new_length();
+        -:  175:#else
+        -:  176:  // Work around to prevent having to link against libc++.dylib. While all users should be
+        -:  177:  // linking against it, in practice this can be tricky and can require a migration period.
+        -:  178:  ::abort();
+        -:  179:#endif
+        -:  180:}
+        -:  181:
+        -:  182:#if !defined(_LIBCPP_HAS_NO_LIBRARY_ALIGNED_ALLOCATION) && !defined(_LIBCPP_ABI_VCRUNTIME)
+        -:  183:#  ifndef _LIBCPP_CXX03_LANG
+        -:  184:enum class align_val_t : size_t {};
+        -:  185:#  else
+        -:  186:enum align_val_t { __zero = 0, __max = (size_t)-1 };
+        -:  187:#  endif
+        -:  188:#endif
+        -:  189:
+        -:  190:#if _LIBCPP_STD_VER >= 20
+        -:  191:// Enable the declaration even if the compiler doesn't support the language
+        -:  192:// feature.
+        -:  193:struct destroying_delete_t {
+        -:  194:  explicit destroying_delete_t() = default;
+        -:  195:};
+        -:  196:inline constexpr destroying_delete_t destroying_delete{};
+        -:  197:#endif // _LIBCPP_STD_VER >= 20
+        -:  198:
+        -:  199:} // namespace std
+        -:  200:
+        -:  201:#if defined(_LIBCPP_CXX03_LANG)
+        -:  202:#  define _THROW_BAD_ALLOC throw(std::bad_alloc)
+        -:  203:#else
+        -:  204:#  define _THROW_BAD_ALLOC
+        -:  205:#endif
+        -:  206:
+        -:  207:// Enable the typed operator declarations if the compiler wants to use the rewriting, or if
+        -:  208:// we're building the library and support for typed-operator-new has been requested.
+        -:  209:#if __has_feature(typed_cxx_new_delete) || (defined(_LIBCPP_BUILDING_LIBRARY) && defined(_LIBCPP_HAS_TYPED_NEW_DELETE_DEFINITIONS))
+        -:  210:// On some platforms, we provide additional versions of the most common `operator new` overloads.
+        -:  211:// Those operators take an additional type descriptor, which allows the implementation to pass type
+        -:  212:// information down to malloc.
+        -:  213://
+        -:  214:// Those are called automatically by the compiler when typed allocation rewriting is enabled via
+        -:  215:// `-ftyped-cxx-new-delete`.
+        -:  216:namespace std { // purposefully not versioned, like align_val_t
+        -:  217:  // We need 64 bits to represent this. We use `unsigned long long` instead of `uint64_t`
+        -:  218:  // to avoid taking a dependency on <cstdint>.
+        -:  219:  enum class __type_descriptor_t : unsigned long long;
+        -:  220:}
+        -:  221:
+        -:  222:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz, std::__type_descriptor_t) _THROW_BAD_ALLOC;
+        -:  223:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz, const std::nothrow_t&, std::__type_descriptor_t) _NOEXCEPT _LIBCPP_NOALIAS;
+        -:  224:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz, std::__type_descriptor_t) _THROW_BAD_ALLOC;
+        -:  225:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz, const std::nothrow_t&, std::__type_descriptor_t) _NOEXCEPT _LIBCPP_NOALIAS;
+        -:  226:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p, std::__type_descriptor_t) _NOEXCEPT;
+        -:  227:_LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete(void* __p, const std::nothrow_t&, std::__type_descriptor_t) _NOEXCEPT;
+        -:  228:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p, std::__type_descriptor_t) _NOEXCEPT;
+        -:  229:_LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete[](void* __p, const std::nothrow_t&, std::__type_descriptor_t) _NOEXCEPT;
+        -:  230:#ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+        -:  231:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p, std::size_t __sz, std::__type_descriptor_t) _NOEXCEPT;
+        -:  232:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p, std::size_t __sz, std::__type_descriptor_t) _NOEXCEPT;
+        -:  233:#endif
+        -:  234:#endif // _LIBCPP_HAS_TYPED_NEW_DELETE_DEFINITIONS
+        -:  235:
+        -:  236:#if !defined(_LIBCPP_ABI_VCRUNTIME)
+        -:  237:
+        -:  238:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz) _THROW_BAD_ALLOC;
+        -:  239:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz, const std::nothrow_t&) _NOEXCEPT
+        -:  240:    _LIBCPP_NOALIAS;
+        -:  241:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p) _NOEXCEPT;
+        -:  242:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p, const std::nothrow_t&) _NOEXCEPT;
+        -:  243:#  ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+        -:  244:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p, std::size_t __sz) _NOEXCEPT;
+        -:  245:#  endif
+        -:  246:
+        -:  247:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz) _THROW_BAD_ALLOC;
+        -:  248:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz, const std::nothrow_t&) _NOEXCEPT
+        -:  249:    _LIBCPP_NOALIAS;
+        -:  250:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p) _NOEXCEPT;
+        -:  251:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p, const std::nothrow_t&) _NOEXCEPT;
+        -:  252:#  ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+        -:  253:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p, std::size_t __sz) _NOEXCEPT;
+        -:  254:#  endif
+        -:  255:
+        -:  256:#  ifndef _LIBCPP_HAS_NO_LIBRARY_ALIGNED_ALLOCATION
+        -:  257:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz, std::align_val_t) _THROW_BAD_ALLOC;
+        -:  258:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void*
+        -:  259:operator new(std::size_t __sz, std::align_val_t, const std::nothrow_t&) _NOEXCEPT _LIBCPP_NOALIAS;
+        -:  260:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p, std::align_val_t) _NOEXCEPT;
+        -:  261:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p, std::align_val_t, const std::nothrow_t&) _NOEXCEPT;
+        -:  262:#    ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+        -:  263:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete(void* __p, std::size_t __sz, std::align_val_t) _NOEXCEPT;
+        -:  264:#    endif
+        -:  265:
+        -:  266:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void*
+        -:  267:operator new[](std::size_t __sz, std::align_val_t) _THROW_BAD_ALLOC;
+        -:  268:_LIBCPP_NODISCARD _LIBCPP_OVERRIDABLE_FUNC_VIS void*
+        -:  269:operator new[](std::size_t __sz, std::align_val_t, const std::nothrow_t&) _NOEXCEPT _LIBCPP_NOALIAS;
+        -:  270:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p, std::align_val_t) _NOEXCEPT;
+        -:  271:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p, std::align_val_t, const std::nothrow_t&) _NOEXCEPT;
+        -:  272:#    ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+        -:  273:_LIBCPP_OVERRIDABLE_FUNC_VIS void operator delete[](void* __p, std::size_t __sz, std::align_val_t) _NOEXCEPT;
+        -:  274:#    endif
+        -:  275:#  endif
+        -:  276:
+        -:  277:_LIBCPP_NODISCARD inline _LIBCPP_HIDE_FROM_ABI void* operator new(std::size_t, void* __p) _NOEXCEPT { return __p; }
+        -:  278:_LIBCPP_NODISCARD inline _LIBCPP_HIDE_FROM_ABI void* operator new[](std::size_t, void* __p) _NOEXCEPT { return __p; }
+        -:  279:inline _LIBCPP_HIDE_FROM_ABI void operator delete(void*, void*) _NOEXCEPT {}
+        -:  280:inline _LIBCPP_HIDE_FROM_ABI void operator delete[](void*, void*) _NOEXCEPT {}
+        -:  281:
+        -:  282:#endif // !_LIBCPP_ABI_VCRUNTIME
+        -:  283:
+        -:  284:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:  285:
+      120:  286:_LIBCPP_CONSTEXPR inline _LIBCPP_HIDE_FROM_ABI bool __is_overaligned_for_new(size_t __align) _NOEXCEPT {
+        -:  287:#ifdef __STDCPP_DEFAULT_NEW_ALIGNMENT__
+      120:  288:  return __align > __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        -:  289:#else
+        -:  290:  return __align > _LIBCPP_ALIGNOF(max_align_t);
+        -:  291:#endif
+        -:  292:}
+        -:  293:
+        -:  294:template <class... _Args>
+       70:  295:_LIBCPP_HIDE_FROM_ABI void* __libcpp_operator_new(_Args... __args) {
+        -:  296:#if __has_builtin(__builtin_operator_new) && __has_builtin(__builtin_operator_delete)
+       70:  297:  return __builtin_operator_new(__args...);
+        -:  298:#else
+        -:  299:  return ::operator new(__args...);
+        -:  300:#endif
+        -:  301:}
+        -:  302:
+        -:  303:template <class... _Args>
+       50:  304:_LIBCPP_HIDE_FROM_ABI void __libcpp_operator_delete(_Args... __args) {
+        -:  305:#if __has_builtin(__builtin_operator_new) && __has_builtin(__builtin_operator_delete)
+       50:  306:  __builtin_operator_delete(__args...);
+        -:  307:#else
+        -:  308:  ::operator delete(__args...);
+        -:  309:#endif
+       50:  310:}
+        -:  311:
+       70:  312:inline _LIBCPP_HIDE_FROM_ABI void* __libcpp_allocate(size_t __size, size_t __align) {
+        -:  313:#ifndef _LIBCPP_HAS_NO_ALIGNED_ALLOCATION
+       70:  314:  if (__is_overaligned_for_new(__align)) {
+    #####:  315:    const align_val_t __align_val = static_cast<align_val_t>(__align);
+    #####:  316:    return __libcpp_operator_new(__size, __align_val);
+        -:  317:  }
+        -:  318:#endif
+        -:  319:
+        -:  320:  (void)__align;
+       70:  321:  return __libcpp_operator_new(__size);
+       70:  322:}
+        -:  323:
+        -:  324:template <class... _Args>
+       50:  325:_LIBCPP_HIDE_FROM_ABI void __do_deallocate_handle_size(void* __ptr, size_t __size, _Args... __args) {
+        -:  326:#ifdef _LIBCPP_HAS_NO_SIZED_DEALLOCATION
+        -:  327:  (void)__size;
+       50:  328:  return std::__libcpp_operator_delete(__ptr, __args...);
+        -:  329:#else
+        -:  330:  return std::__libcpp_operator_delete(__ptr, __size, __args...);
+        -:  331:#endif
+        -:  332:}
+        -:  333:
+       50:  334:inline _LIBCPP_HIDE_FROM_ABI void __libcpp_deallocate(void* __ptr, size_t __size, size_t __align) {
+        -:  335:#if defined(_LIBCPP_HAS_NO_ALIGNED_ALLOCATION)
+        -:  336:  (void)__align;
+        -:  337:  return __do_deallocate_handle_size(__ptr, __size);
+        -:  338:#else
+       50:  339:  if (__is_overaligned_for_new(__align)) {
+    #####:  340:    const align_val_t __align_val = static_cast<align_val_t>(__align);
+    #####:  341:    return __do_deallocate_handle_size(__ptr, __size, __align_val);
+        -:  342:  } else {
+       50:  343:    return __do_deallocate_handle_size(__ptr, __size);
+        -:  344:  }
+        -:  345:#endif
+       50:  346:}
+        -:  347:
+        -:  348:inline _LIBCPP_HIDE_FROM_ABI void __libcpp_deallocate_unsized(void* __ptr, size_t __align) {
+        -:  349:#if defined(_LIBCPP_HAS_NO_ALIGNED_ALLOCATION)
+        -:  350:  (void)__align;
+        -:  351:  return __libcpp_operator_delete(__ptr);
+        -:  352:#else
+        -:  353:  if (__is_overaligned_for_new(__align)) {
+        -:  354:    const align_val_t __align_val = static_cast<align_val_t>(__align);
+        -:  355:    return __libcpp_operator_delete(__ptr, __align_val);
+        -:  356:  } else {
+        -:  357:    return __libcpp_operator_delete(__ptr);
+        -:  358:  }
+        -:  359:#endif
+        -:  360:}
+        -:  361:
+        -:  362:template <class _Tp>
+        -:  363:_LIBCPP_NODISCARD inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR _Tp* __launder(_Tp* __p) _NOEXCEPT {
+        -:  364:  static_assert(!(is_function<_Tp>::value), "can't launder functions");
+        -:  365:  static_assert(!(is_same<void, __remove_cv_t<_Tp> >::value), "can't launder cv-void");
+        -:  366:  return __builtin_launder(__p);
+        -:  367:}
+        -:  368:
+        -:  369:#if _LIBCPP_STD_VER >= 17
+        -:  370:template <class _Tp>
+        -:  371:[[nodiscard]] inline _LIBCPP_HIDE_FROM_ABI constexpr _Tp* launder(_Tp* __p) noexcept {
+        -:  372:  return std::__launder(__p);
+        -:  373:}
+        -:  374:#endif
+        -:  375:
+        -:  376:#if _LIBCPP_STD_VER >= 17
+        -:  377:
+        -:  378:#  if defined(__GCC_DESTRUCTIVE_SIZE) && defined(__GCC_CONSTRUCTIVE_SIZE)
+        -:  379:
+        -:  380:inline constexpr size_t hardware_destructive_interference_size  = __GCC_DESTRUCTIVE_SIZE;
+        -:  381:inline constexpr size_t hardware_constructive_interference_size = __GCC_CONSTRUCTIVE_SIZE;
+        -:  382:
+        -:  383:#  endif // defined(__GCC_DESTRUCTIVE_SIZE) && defined(__GCC_CONSTRUCTIVE_SIZE)
+        -:  384:
+        -:  385:#endif // _LIBCPP_STD_VER >= 17
+        -:  386:
+        -:  387:_LIBCPP_END_NAMESPACE_STD
+        -:  388:
+        -:  389:#if !defined(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES) && _LIBCPP_STD_VER <= 20
+        -:  390:#  include <cstdlib>
+        -:  391:#  include <type_traits>
+        -:  392:#endif
+        -:  393:
+        -:  394:#endif // _LIBCPP_NEW

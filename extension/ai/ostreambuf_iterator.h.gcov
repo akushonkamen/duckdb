@@ -1,0 +1,77 @@
+        -:    0:Source:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/ostreambuf_iterator.h
+        -:    0:Graph:../../build/test/extension/ai.duckdb_extension-ai_filter.gcno
+        -:    0:Data:../../build/test/extension/ai.duckdb_extension-ai_filter.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:// -*- C++ -*-
+        -:    2://===----------------------------------------------------------------------===//
+        -:    3://
+        -:    4:// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+        -:    5:// See https://llvm.org/LICENSE.txt for license information.
+        -:    6:// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+        -:    7://
+        -:    8://===----------------------------------------------------------------------===//
+        -:    9:
+        -:   10:#ifndef _LIBCPP___ITERATOR_OSTREAMBUF_ITERATOR_H
+        -:   11:#define _LIBCPP___ITERATOR_OSTREAMBUF_ITERATOR_H
+        -:   12:
+        -:   13:#include <__config>
+        -:   14:#include <__iterator/iterator.h>
+        -:   15:#include <__iterator/iterator_traits.h>
+        -:   16:#include <cstddef>
+        -:   17:#include <iosfwd> // for forward declaration of basic_streambuf
+        -:   18:
+        -:   19:#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+        -:   20:#  pragma GCC system_header
+        -:   21:#endif
+        -:   22:
+        -:   23:_LIBCPP_BEGIN_NAMESPACE_STD
+        -:   24:
+        -:   25:_LIBCPP_SUPPRESS_DEPRECATED_PUSH
+        -:   26:template <class _CharT, class _Traits>
+        -:   27:class _LIBCPP_TEMPLATE_VIS ostreambuf_iterator
+        -:   28:#if _LIBCPP_STD_VER <= 14 || !defined(_LIBCPP_ABI_NO_ITERATOR_BASES)
+        -:   29:    : public iterator<output_iterator_tag, void, void, void, void>
+        -:   30:#endif
+        -:   31:{
+        -:   32:  _LIBCPP_SUPPRESS_DEPRECATED_POP
+        -:   33:
+        -:   34:public:
+        -:   35:  typedef output_iterator_tag iterator_category;
+        -:   36:  typedef void value_type;
+        -:   37:#if _LIBCPP_STD_VER >= 20
+        -:   38:  typedef ptrdiff_t difference_type;
+        -:   39:#else
+        -:   40:  typedef void difference_type;
+        -:   41:#endif
+        -:   42:  typedef void pointer;
+        -:   43:  typedef void reference;
+        -:   44:  typedef _CharT char_type;
+        -:   45:  typedef _Traits traits_type;
+        -:   46:  typedef basic_streambuf<_CharT, _Traits> streambuf_type;
+        -:   47:  typedef basic_ostream<_CharT, _Traits> ostream_type;
+        -:   48:
+        -:   49:private:
+        -:   50:  streambuf_type* __sbuf_;
+        -:   51:
+        -:   52:public:
+    #####:   53:  _LIBCPP_HIDE_FROM_ABI ostreambuf_iterator(ostream_type& __s) _NOEXCEPT : __sbuf_(__s.rdbuf()) {}
+        -:   54:  _LIBCPP_HIDE_FROM_ABI ostreambuf_iterator(streambuf_type* __s) _NOEXCEPT : __sbuf_(__s) {}
+        -:   55:  _LIBCPP_HIDE_FROM_ABI ostreambuf_iterator& operator=(_CharT __c) {
+        -:   56:    if (__sbuf_ && traits_type::eq_int_type(__sbuf_->sputc(__c), traits_type::eof()))
+        -:   57:      __sbuf_ = nullptr;
+        -:   58:    return *this;
+        -:   59:  }
+        -:   60:  _LIBCPP_HIDE_FROM_ABI ostreambuf_iterator& operator*() { return *this; }
+        -:   61:  _LIBCPP_HIDE_FROM_ABI ostreambuf_iterator& operator++() { return *this; }
+        -:   62:  _LIBCPP_HIDE_FROM_ABI ostreambuf_iterator& operator++(int) { return *this; }
+    #####:   63:  _LIBCPP_HIDE_FROM_ABI bool failed() const _NOEXCEPT { return __sbuf_ == nullptr; }
+        -:   64:
+        -:   65:  template <class _Ch, class _Tr>
+        -:   66:  friend _LIBCPP_HIDE_FROM_ABI ostreambuf_iterator<_Ch, _Tr> __pad_and_output(
+        -:   67:      ostreambuf_iterator<_Ch, _Tr> __s, const _Ch* __ob, const _Ch* __op, const _Ch* __oe, ios_base& __iob, _Ch __fl);
+        -:   68:};
+        -:   69:
+        -:   70:_LIBCPP_END_NAMESPACE_STD
+        -:   71:
+        -:   72:#endif // _LIBCPP___ITERATOR_OSTREAMBUF_ITERATOR_H
