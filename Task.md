@@ -161,6 +161,54 @@
 
 ---
 
+### ✅ TASK-GMOCK-001：Google Mock 测试框架集成
+**状态**：✅ 通过  |  **优先级**：🟡 中（质量保证）
+**完成日期**：2026-03-03
+
+**任务目标**：集成 Google Mock 测试框架，实现依赖注入和单元测试。
+
+**当前状态**：
+- 单元测试：9/9 通过
+- 代码覆盖率：50.59% (ai_function_executor.hpp)
+- 构建集成：已集成到主 DuckDB CMake
+
+**验收标准**：
+- [x] 依赖注入接口设计 (IHTTPClient, ISystemClock, IRandomGenerator)
+- [x] AIFunctionExecutor 可测试执行器
+- [x] Google Mock 单元测试用例 (9 个)
+- [x] 主构建集成 (-DBUILD_AI_UNITTESTS=ON)
+- [x] 重试逻辑测试覆盖
+
+**交付物**：
+- [x] `extension/ai/include/http_client_interface.hpp` - 抽象接口
+- [x] `extension/ai/include/ai_function_executor.hpp` - 可测试执行器
+- [x] `extension/ai/src/http_client.cpp` - 生产实现
+- [x] `extension/ai/tests/gtest/` - Google Mock 测试目录
+- [x] `test/ai_unittest/CMakeLists.txt` - 主构建集成
+- [x] `tests/GMOCK_INTEGRATION.md` - 集成文档
+
+**测试用例**：
+| 测试 | 描述 |
+|------|------|
+| `SuccessfulAPIResponse` | 成功 API 响应 |
+| `RetryOnceThenSuccess` | 重试一次后成功 |
+| `MaxRetriesExhausted` | 达到最大重试次数 |
+| `EmptyResponseThenRetry` | 空响应后重试 |
+| `RandomJitterInDelay` | 指数退避随机抖动 |
+| `DifferentModelNames` | 不同模型名称 |
+| `EmptyImage` | 空图片输入 |
+| `ResponseWithInvalidJSON` | 无效 JSON 响应 |
+
+**构建方式**：
+```bash
+cd duckdb
+mkdir -p build && cd build
+cmake .. -DBUILD_AI_UNITTESTS=ON
+make unittest_ai
+```
+
+---
+
 ## 历史任务
 
 ### ✅ TASK-K-001：M0 环境验证与架构摸底
