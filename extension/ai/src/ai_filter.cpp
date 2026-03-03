@@ -42,6 +42,14 @@ static constexpr int MAX_DELAY_MS = 5000;          // Maximum backoff delay (5s)
 static constexpr int HTTP_TIMEOUT_SEC = 30;        // HTTP request timeout
 static constexpr double DEFAULT_DEGRADATION_SCORE = 0.5;  // Fallback score
 
+// Test Mode Configuration (for coverage testing)
+// Set AI_FILTER_TEST_MODE to:
+//   "success" - Return successful JSON response
+//   "retry"   - Simulate retry scenario (fail then succeed)
+//   "fail"    - Always fail (max retries)
+//   "invalid" - Return invalid JSON for parsing fallback
+//   ""        - Normal mode (call real API)
+
 // Get delay for exponential backoff with jitter
 static int GetRetryDelayMs(int attempt) {
 	// Exponential backoff: BASE_DELAY_MS * 2^attempt
@@ -60,6 +68,33 @@ static int GetRetryDelayMs(int attempt) {
 // ============================================================================
 
 static string CallAI_API_WithRetry(const string &image, const string &prompt, const string &model) {
+	// Check for test mode (for coverage testing)
+	if (const char* test_mode = std::getenv("AI_FILTER_TEST_MODE")) {
+		std::string test_mode_str(test_mode);
+		static std::atomic<int> call_count{0};
+		int current_call = call_count.fetch_add(1);
+
+		if (test_mode_str == "success") {
+			// Return successful response
+			return "{\"choices\":[{\"message\":{\"content\":\"0.85\"}}]}";
+		} else if (test_mode_str == "retry") {
+			// Fail on first attempt, succeed on second
+			if (current_call % 2 == 1) {
+				fprintf(stderr, "[AI_FILTER_RETRY] Test mode: simulating failure on attempt %d\\n", current_call);
+				return "{\"error\":\"simulated_error\"}";
+			}
+			fprintf(stderr, "[AI_FILTER_RETRY] Test mode: success on attempt %d\\n", current_call);
+			return "{\"choices\":[{\"message\":{\"content\":\"0.75\"}}]}";
+		} else if (test_mode_str == "fail") {
+			// Always fail
+			return "{\"error\":\"max_retries_exceeded\"}";
+		} else if (test_mode_str == "invalid") {
+			// Return invalid JSON (no "content" key) - triggers Strategy 2
+			return "{\"data\":\"some random value with 0.67 number inside\"}";
+		}
+		// If test_mode is unknown, fall through to normal API call
+	}
+
 	// Build JSON request body
 	std::ostringstream json_body;
 	json_body << "{"
